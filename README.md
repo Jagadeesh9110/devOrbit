@@ -23,29 +23,32 @@ A simple, fast, and clean bug tracking tool built for developers, student teams,
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - [Next.js](https://nextjs.org/)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 
 ### Backend
+
 - [Node.js](https://nodejs.org/)
 - [Express.js](https://expressjs.com/)
 - [MongoDB](https://www.mongodb.com/)
 
 ### Auth
+
 - [JWT (JSON Web Tokens)](https://jwt.io/)
 
 ---
 
 ## 👥 Target Users
 
-| Audience                     | Why It Fits                                  |
-|-----------------------------|-----------------------------------------------|
+| Audience                       | Why It Fits                                   |
+| ------------------------------ | --------------------------------------------- |
 | 🏢 Startups & Small Tech Teams | Clean, fast, affordable alternative to Jira   |
-| 💻 Freelancers / Indie Devs   | Simple solo mode for personal bug tracking    |
-| 🎓 Student Teams              | Easy collaboration and bug fixing in projects |
-| 🧪 QA Testers & Agencies      | Submit and assign bugs with screenshots       |
-| 🌐 SaaS Product Teams         | Public feedback reporting (future phase)      |
+| 💻 Freelancers / Indie Devs    | Simple solo mode for personal bug tracking    |
+| 🎓 Student Teams               | Easy collaboration and bug fixing in projects |
+| 🧪 QA Testers & Agencies       | Submit and assign bugs with screenshots       |
+| 🌐 SaaS Product Teams          | Public feedback reporting (future phase)      |
 
 ---
 
@@ -61,3 +64,4 @@ npm install
 
 # 3. Start the development server
 npm run dev
+```

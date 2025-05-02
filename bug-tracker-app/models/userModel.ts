@@ -5,7 +5,14 @@ export interface UserInt extends Document {
   name: string;
   email: string;
   password: string;
+  isVerified: boolean;
+  verificationToken: String | null;
+  verificationTokenExpiry: Date | null;
+  resetToken: String | null;
+  resetTokenExpiry: Date | null;
+  comparePassword: (enteredPassword: string) => Promise<boolean>;
 }
+
 const UserSchema: Schema = new Schema<UserInt>(
   {
     name: {
@@ -22,6 +29,14 @@ const UserSchema: Schema = new Schema<UserInt>(
       required: [true, "Password is required"],
       minlength: [8, "Password should be at least 8 characters long"],
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: { type: String, required: false, default: null },
+    verificationTokenExpiry: { type: Date, required: false, default: null },
+    resetToken: { type: String, required: false, default: null },
+    resetTokenExpiry: { type: Date, required: false, default: null },
   },
   {
     timestamps: true,
@@ -38,9 +53,12 @@ UserSchema.pre<UserInt>("save", async function (next) {
     next(err as Error);
   }
 });
-// Because this inside Mongoose middleware is typed as any by default in TypeScript, it's better to hint TypeScript that this is a UserInt document.
 
 UserSchema.methods.comparePassword = async function (enteredPassword: string) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
-export const User = model<UserInt>("User", UserSchema);
+
+// Check if the model has already been compiled
+const User = mongoose.models.User || model<UserInt>("User", UserSchema);
+
+export default User;

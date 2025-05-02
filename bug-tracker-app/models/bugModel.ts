@@ -5,7 +5,6 @@ export interface BugInt extends Document {
   description: string;
   status: "Open" | "In Progress" | "Closed";
   createdBy: mongoose.Types.ObjectId; // user
-  createdAt: Date;
 }
 
 const BugSchema: Schema = new Schema<BugInt>(
@@ -27,10 +26,6 @@ const BugSchema: Schema = new Schema<BugInt>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User", // Relation to User
       required: true,
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }
