@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { verifyEmail } from "../../../../controllers/authController";
-import connectDB from "../../../../lib/dbConnect";
+import connectDB from "../../../../lib/db/Connect";
 import jwt from "jsonwebtoken";
 import User from "../../../../models/userModel";
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const result = await verifyEmail(req);
-    return NextResponse.json(result);
-  } catch (error) {
-    if (error instanceof Error) {
+    const { token } = await request.json();
+
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: error.message },
+        { success: false, message: "Token is required" },
         { status: 400 }
       );
     }
+
+    const result = await verifyEmail(token);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Email verification error:", error);
     return NextResponse.json(
-      { success: false, message: "An unknown error occurred" },
+      { success: false, message: "Failed to verify email" },
       { status: 500 }
     );
   }

@@ -1,6 +1,12 @@
 import mongoose, { Schema, Document, model } from "mongoose";
 import bcrypt from "bcryptjs";
 
+export interface Badge {
+  name: string;
+  earnedAt: Date;
+  projectId?: mongoose.Types.ObjectId;
+}
+
 export interface UserInt extends Document {
   name: string;
   email: string;
@@ -10,6 +16,9 @@ export interface UserInt extends Document {
   verificationTokenExpiry: Date | null;
   resetToken: String | null;
   resetTokenExpiry: Date | null;
+  role: "Developer" | "Tester" | "Project Manager" | "Team Manager";
+  teamIds: mongoose.Types.ObjectId[];
+  badges: Badge[];
   comparePassword: (enteredPassword: string) => Promise<boolean>;
 }
 
@@ -37,6 +46,33 @@ const UserSchema: Schema = new Schema<UserInt>(
     verificationTokenExpiry: { type: Date, required: false, default: null },
     resetToken: { type: String, required: false, default: null },
     resetTokenExpiry: { type: Date, required: false, default: null },
+    role: {
+      type: String,
+      enum: ["Developer", "Tester", "Project Manager", "Team Manager"],
+      required: [true, "Role is required"],
+    },
+    teamIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Project",
+      },
+    ],
+    badges: [
+      {
+        name: {
+          type: String,
+          required: true,
+        },
+        earnedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        projectId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Project",
+        },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -58,7 +94,6 @@ UserSchema.methods.comparePassword = async function (enteredPassword: string) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Check if the model has already been compiled
 const User = mongoose.models.User || model<UserInt>("User", UserSchema);
 
 export default User;

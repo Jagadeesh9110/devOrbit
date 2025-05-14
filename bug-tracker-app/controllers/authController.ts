@@ -2,15 +2,26 @@ import User from "../models/userModel";
 import bcrypt from "bcryptjs";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { sendEmail } from "../lib/sendEmail";
-import connectDB from "../lib/dbConnect";
+import connectDB from "../lib/db/Connect";
 
 export const registerUser = async (req: Request) => {
   try {
     await connectDB();
-    const { name, email, password } = await req.json();
+    const { name, email, password, role } = await req.json();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !role) {
       throw new Error("All fields are required");
+    }
+
+    // Validate role
+    const validRoles = [
+      "Developer",
+      "Tester",
+      "Project Manager",
+      "Team Manager",
+    ];
+    if (!validRoles.includes(role)) {
+      throw new Error("Invalid role selected");
     }
 
     const existingUser = await User.findOne({ email });
@@ -22,6 +33,7 @@ export const registerUser = async (req: Request) => {
       name,
       email,
       password,
+      role,
       isVerified: false,
     });
     await newUser.save();
@@ -40,7 +52,7 @@ export const registerUser = async (req: Request) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #6B46C1; text-align: center;">Welcome to Bug Tracker!</h1>
-          <p>Thank you for registering. To complete your registration and access your account, please verify your email address by clicking the button below:</p>
+          <p>Thank you for registering as a ${role}. To complete your registration and access your account, please verify your email address by clicking the button below:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${verificationLink}" 
                style="background-color: #6B46C1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
@@ -105,6 +117,8 @@ export const loginUser = async (req: Request) => {
           id: user._id,
           name: user.name,
           email: user.email,
+          role: user.role,
+          isVerified: user.isVerified,
         },
       },
     };
@@ -113,10 +127,9 @@ export const loginUser = async (req: Request) => {
   }
 };
 
-export const verifyEmail = async (req: Request) => {
+export const verifyEmail = async (token: string) => {
   try {
     await connectDB();
-    const { token } = await req.json();
 
     if (!token) {
       throw new Error("Token is required");

@@ -15,7 +15,25 @@ export async function POST(req: Request) {
             message:
               "This email address is already registered. Please use a different email or try logging in.",
           },
-          { status: 409 } // 409 Conflict is appropriate for duplicate resource
+          { status: 409 }
+        );
+      }
+      if (error.message === "Invalid role selected") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Please select a valid role from the provided options.",
+          },
+          { status: 400 }
+        );
+      }
+      if (error.message === "All fields are required") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Please fill in all required fields including your role.",
+          },
+          { status: 400 }
         );
       }
       return NextResponse.json(

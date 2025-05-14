@@ -13,6 +13,7 @@ const RegisterForm: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "Developer", // Default role
   });
 
   const [errors, setErrors] = useState({
@@ -20,12 +21,15 @@ const RegisterForm: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
@@ -42,6 +46,7 @@ const RegisterForm: React.FC = () => {
       email: "",
       password: "",
       confirmPassword: "",
+      role: "",
     };
 
     if (!formData.name.trim()) {
@@ -73,6 +78,11 @@ const RegisterForm: React.FC = () => {
       isValid = false;
     }
 
+    if (!formData.role) {
+      newErrors.role = "Role is required";
+      isValid = false;
+    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -92,6 +102,7 @@ const RegisterForm: React.FC = () => {
           name: formData.name,
           email: formData.email,
           password: formData.password,
+          role: formData.role,
         }),
       });
 
@@ -148,6 +159,32 @@ const RegisterForm: React.FC = () => {
           icon={<Mail size={18} />}
           error={errors.email}
         />
+
+        <div className="space-y-2">
+          <label
+            htmlFor="role"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Role
+          </label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 ${
+              errors.role ? "border-red-500" : ""
+            }`}
+          >
+            <option value="Developer">Developer</option>
+            <option value="Tester">Tester</option>
+            <option value="Project Manager">Project Manager</option>
+            <option value="Team Manager">Team Manager</option>
+          </select>
+          {errors.role && (
+            <p className="mt-1 text-sm text-red-600">{errors.role}</p>
+          )}
+        </div>
 
         <FormField
           label="Password"

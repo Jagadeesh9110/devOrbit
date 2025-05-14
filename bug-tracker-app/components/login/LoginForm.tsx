@@ -72,19 +72,32 @@ const LoginForm: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        credentials: "include",
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        localStorage.setItem("accessToken", data.data.accessToken);
-        localStorage.setItem("refreshToken", data.data.refreshToken);
-        router.push("/dashboard");
+      if (!res.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      if (data.success) {
+        // Get the redirect path from the URL, default to dashboard
+        const redirectPath = searchParams.get("from") || "/dashboard";
+        // Decode the URL-encoded path
+        const decodedPath = decodeURIComponent(redirectPath);
+        await router.push(decodedPath);
+        router.refresh();
       } else {
-        setSubmitError(data.message);
+        throw new Error(data.message || "Login failed");
       }
     } catch (error) {
-      setSubmitError("An error occurred during login");
+      console.error("Login error:", error);
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "An error occurred during login"
+      );
     } finally {
       setIsSubmitting(false);
     }
