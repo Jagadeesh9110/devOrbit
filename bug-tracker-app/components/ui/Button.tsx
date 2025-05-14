@@ -3,7 +3,7 @@ import React, { ReactNode } from "react";
 interface ButtonProps {
   children: ReactNode;
   type?: "button" | "submit" | "reset";
-  variant?: "primary" | "secondary" | "outline";
+  variant?: "primary" | "secondary" | "outline" | "accent";
   size?: "sm" | "md" | "lg";
   fullWidth?: boolean;
   disabled?: boolean;
@@ -36,10 +36,13 @@ const Button = ({
 
   const variantStyles = {
     primary:
-      "bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-md hover:shadow-lg focus:ring-purple-500",
-    secondary: "bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-500",
+      "bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:scale-[1.04] hover:shadow-lg focus:ring-primary-600",
+    accent:
+      "bg-gradient-to-r from-accent-500 to-accent-600 text-white hover:scale-[1.04] hover:shadow-lg focus:ring-accent-500",
+    secondary:
+      "bg-slate-700 text-white hover:bg-slate-700/90 focus:ring-slate-700",
     outline:
-      "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-purple-500",
+      "border border-primary-600 bg-white text-primary-700 hover:bg-primary-50 focus:ring-primary-600",
   };
 
   const widthStyles = fullWidth ? "w-full" : "";

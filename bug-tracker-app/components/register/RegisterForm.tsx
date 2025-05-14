@@ -13,7 +13,7 @@ const RegisterForm: React.FC = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "Developer", // Default role
+    role: "Developer",
   });
 
   const [errors, setErrors] = useState({
@@ -172,7 +172,7 @@ const RegisterForm: React.FC = () => {
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 ${
+            className={`mt-1 block w-full rounded-md border-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 ${
               errors.role ? "border-red-500" : ""
             }`}
           >
@@ -213,16 +213,16 @@ const RegisterForm: React.FC = () => {
             id="terms"
             name="terms"
             type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            className="h-4 w-4 rounded border-primary-600 text-primary-600 focus:ring-primary-500"
             required
           />
-          <label htmlFor="terms" className="ml-2 block text-sm text-gray-600">
+          <label htmlFor="terms" className="ml-2 block text-sm text-slate-600">
             I agree to the{" "}
-            <Link href="#" className="text-purple-600 hover:text-purple-500">
+            <Link href="#" className="text-primary-600 hover:text-primary-700">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="#" className="text-purple-600 hover:text-purple-500">
+            <Link href="#" className="text-primary-600 hover:text-primary-700">
               Privacy Policy
             </Link>
           </label>
@@ -233,6 +233,7 @@ const RegisterForm: React.FC = () => {
           fullWidth
           rightIcon={<ArrowRight size={18} />}
           disabled={isSubmitting}
+          variant="primary"
         >
           {isSubmitting ? "Creating Account..." : "Create Account"}
         </Button>
@@ -244,18 +245,20 @@ const RegisterForm: React.FC = () => {
             <div className="w-full border-t border-gray-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+            <span className="px-2 bg-white text-slate-500">
+              Or sign up with
+            </span>
           </div>
         </div>
 
         <SocialButtons mode="register" />
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-600">
             Already have an account?{" "}
             <Link
               href="/auth/login"
-              className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
+              className="font-medium text-primary-600 hover:text-primary-700 transition-colors"
             >
               Sign in
             </Link>

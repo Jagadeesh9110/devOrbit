@@ -82,9 +82,7 @@ const LoginForm: React.FC = () => {
       }
 
       if (data.success) {
-        // Get the redirect path from the URL, default to dashboard
         const redirectPath = searchParams.get("from") || "/dashboard";
-        // Decode the URL-encoded path
         const decodedPath = decodeURIComponent(redirectPath);
         await router.push(decodedPath);
         router.refresh();
@@ -151,11 +149,11 @@ const LoginForm: React.FC = () => {
               id="remember-me"
               name="remember-me"
               type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              className="h-4 w-4 rounded border-primary-600 text-primary-600 focus:ring-primary-500"
             />
             <label
               htmlFor="remember-me"
-              className="ml-2 block text-sm text-gray-600"
+              className="ml-2 block text-sm text-slate-600"
             >
               Remember me
             </label>
@@ -163,7 +161,7 @@ const LoginForm: React.FC = () => {
           <div>
             <Link
               href="/forgot-password"
-              className="text-sm font-medium text-purple-600 hover:text-purple-500 transition-colors"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
             >
               Forgot password?
             </Link>
@@ -175,6 +173,7 @@ const LoginForm: React.FC = () => {
           fullWidth
           rightIcon={<ArrowRight size={18} />}
           disabled={isSubmitting}
+          variant="primary"
         >
           {isSubmitting ? "Signing in..." : "Sign in"}
         </Button>
@@ -186,7 +185,7 @@ const LoginForm: React.FC = () => {
             <div className="w-full border-t border-gray-200"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">
+            <span className="px-2 bg-white text-slate-500">
               Or continue with
             </span>
           </div>
@@ -195,11 +194,11 @@ const LoginForm: React.FC = () => {
         <SocialButtons mode="login" />
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-600">
             Don't have an account?{" "}
             <Link
               href="/auth/register"
-              className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
+              className="font-medium text-primary-600 hover:text-primary-700 transition-colors"
             >
               Register now
             </Link>

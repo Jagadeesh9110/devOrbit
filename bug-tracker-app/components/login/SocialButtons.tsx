@@ -227,7 +227,7 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
       <button
         onClick={handleGitHubLogin}
         disabled={isLoading}
-        className="w-full flex items-center justify-center gap-2 bg-[#24292F] text-white rounded-lg px-4 py-2 hover:bg-[#1B1F23] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 bg-[#24292F] text-white rounded-lg px-4 py-2 hover:bg-[#1B1F23] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <FaGithub className="w-5 h-5" />
         <span>Continue with GitHub</span>
