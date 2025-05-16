@@ -148,70 +148,84 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
         }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Authentication failed");
-      }
-
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Authentication failed");
+      }
 
       if (data.success) {
         router.push("/dashboard");
+        router.refresh();
       } else {
         setError(data.message || "Authentication failed");
       }
     } catch (error) {
+      console.error("Google auth error:", error);
       setError(
         error instanceof Error
           ? error.message
           : "An error occurred during authentication"
       );
-      console.error("Error during Google authentication:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGitHubLogin = async () => {
-    try {
-      setIsLoading(true);
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
+  const handleGitHubLogin = () => {
+    setIsLoading(true);
+    setError("");
 
-      const popup = window.open(
-        "/api/auth/github",
-        "GitHub Login",
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
 
-      if (!popup) {
-        throw new Error("Popup blocked. Please allow popups for this site.");
-      }
+    // Open the popup with the correct URL and features
+    const popup = window.open(
+      "/api/auth/github?popup=true",
+      "GitHub Login",
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
 
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
-
-        if (event.data.type === "GITHUB_OAUTH_SUCCESS") {
-          popup.close();
-          window.removeEventListener("message", handleMessage);
-          router.push("/dashboard");
-          router.refresh();
-        } else if (event.data.type === "GITHUB_OAUTH_ERROR") {
-          popup.close();
-          window.removeEventListener("message", handleMessage);
-          throw new Error(event.data.error || "GitHub login failed");
-        }
-      };
-
-      window.addEventListener("message", handleMessage);
-    } catch (error) {
-      console.error("GitHub login error:", error);
-      alert(error instanceof Error ? error.message : "GitHub login failed");
-    } finally {
+    if (!popup) {
+      setError("Popup blocked. Please allow popups for this site.");
       setIsLoading(false);
+      return;
     }
+
+    // Message handler
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data.type === "GITHUB_OAUTH_SUCCESS") {
+        window.removeEventListener("message", handleMessage);
+        setIsLoading(false);
+        router.push("/dashboard");
+        router.refresh();
+      } else if (event.data.type === "GITHUB_OAUTH_ERROR") {
+        window.removeEventListener("message", handleMessage);
+        setError(event.data.error || "GitHub login failed");
+        setIsLoading(false);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    // Check if popup is closed
+    const interval = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(interval);
+        window.removeEventListener("message", handleMessage);
+        setIsLoading(false);
+      }
+    }, 500);
+
+    // Cleanup function
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("message", handleMessage);
+    };
   };
 
   return (

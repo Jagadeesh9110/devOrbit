@@ -7,6 +7,7 @@ import {
 } from "./lib/edge-auth";
 
 const publicPaths = [
+  "/",
   "/auth/login",
   "/auth/register",
   "/auth/forgot-password",

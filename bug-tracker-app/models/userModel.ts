@@ -1,99 +1,130 @@
 import mongoose, { Schema, Document, model } from "mongoose";
 import bcrypt from "bcryptjs";
 
-export interface Badge {
-  name: string;
-  earnedAt: Date;
-  projectId?: mongoose.Types.ObjectId;
-}
-
-export interface UserInt extends Document {
-  name: string;
+export interface IUser extends Document {
   email: string;
-  password: string;
+  name: string;
+  password?: string;
+  image?: string;
   isVerified: boolean;
   verificationToken: String | null;
   verificationTokenExpiry: Date | null;
   resetToken: String | null;
   resetTokenExpiry: Date | null;
-  role: "Developer" | "Tester" | "Project Manager" | "Team Manager";
+  role: "Admin" | "Project Manager" | "Developer" | "Tester";
   teamIds: mongoose.Types.ObjectId[];
   badges: Badge[];
-  comparePassword: (enteredPassword: string) => Promise<boolean>;
+  authProvider?: "GOOGLE" | "GITHUB";
+  authProviderId?: string;
+  comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
-const UserSchema: Schema = new Schema<UserInt>(
+interface Badge {
+  name: string;
+  description: string;
+  earnedAt: Date;
+}
+
+const userSchema = new Schema<IUser>(
   {
-    name: {
-      type: String,
-      required: [true, "Username is required"],
-    },
     email: {
       type: String,
       required: [true, "Email is required"],
       unique: true,
+      trim: true,
+      lowercase: true,
+    },
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [8, "Password should be at least 8 characters long"],
+      required: function (this: IUser) {
+        return !this.authProvider;
+      },
+      validate: {
+        validator: function (this: IUser, value: string | null) {
+          if (this.authProvider) return true;
+
+          return value != null && value.length >= 8;
+        },
+        message: "Password is required and must be at least 8 characters long",
+      },
+    },
+    image: {
+      type: String,
+      default: "",
     },
     isVerified: {
       type: Boolean,
       default: false,
     },
-    verificationToken: { type: String, required: false, default: null },
-    verificationTokenExpiry: { type: Date, required: false, default: null },
-    resetToken: { type: String, required: false, default: null },
-    resetTokenExpiry: { type: Date, required: false, default: null },
+    verificationToken: {
+      type: String,
+      default: null,
+    },
+    verificationTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+    resetToken: {
+      type: String,
+      default: null,
+    },
+    resetTokenExpiry: {
+      type: Date,
+      default: null,
+    },
     role: {
       type: String,
-      enum: ["Developer", "Tester", "Project Manager", "Team Manager"],
-      required: [true, "Role is required"],
+      enum: ["Admin", "Project Manager", "Developer", "Tester"],
+      default: "Developer",
     },
     teamIds: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Project",
+        type: Schema.Types.ObjectId,
+        ref: "Team",
       },
     ],
     badges: [
       {
-        name: {
-          type: String,
-          required: true,
-        },
-        earnedAt: {
-          type: Date,
-          default: Date.now,
-        },
-        projectId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Project",
-        },
+        name: String,
+        description: String,
+        earnedAt: Date,
       },
     ],
+    authProvider: {
+      type: String,
+      enum: ["GOOGLE", "GITHUB"],
+    },
+    authProviderId: {
+      type: String,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-UserSchema.pre<UserInt>("save", async function (next) {
-  if (!this.isModified("password")) return next();
+userSchema.pre<IUser>("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+
   try {
-    const hashedPassword = await bcrypt.hash(this.password as string, 10);
-    this.password = hashedPassword;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
     next();
-  } catch (err) {
-    next(err as Error);
+  } catch (error: any) {
+    next(error);
   }
 });
 
-UserSchema.methods.comparePassword = async function (enteredPassword: string) {
+userSchema.methods.comparePassword = async function (enteredPassword: string) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.models.User || model<UserInt>("User", UserSchema);
+const User = mongoose.models.User || model<IUser>("User", userSchema);
 
 export default User;

@@ -29,6 +29,12 @@ export interface BugInt extends Document {
     userId: mongoose.Types.ObjectId;
     lastViewed: Date;
   }>;
+  resolvedBy?: mongoose.Types.ObjectId;
+  closedBy?: mongoose.Types.ObjectId;
+  dueDate?: Date;
+  expectedFixDate?: Date;
+  reopenedCount?: number;
+  reopenedBy?: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +59,12 @@ export interface BugInput {
     userId: mongoose.Types.ObjectId;
     lastViewed: Date;
   }>;
+  resolvedBy?: mongoose.Types.ObjectId;
+  closedBy?: mongoose.Types.ObjectId;
+  dueDate?: Date;
+  expectedFixDate?: Date;
+  reopenedCount?: number;
+  reopenedBy?: mongoose.Types.ObjectId[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -125,6 +137,12 @@ const BugSchema: Schema = new Schema<BugInt>(
         lastViewed: { type: Date, default: Date.now },
       },
     ],
+    resolvedBy: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    closedBy: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    dueDate: { type: Date },
+    expectedFixDate: { type: Date },
+    reopenedCount: { type: Number, default: 0 },
+    reopenedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   {
     timestamps: true,
@@ -133,7 +151,6 @@ const BugSchema: Schema = new Schema<BugInt>(
   }
 );
 
-// Virtual for activity feed
 BugSchema.virtual("activities").get(function (this: BugInt) {
   return {
     created: this.createdAt,
@@ -142,15 +159,12 @@ BugSchema.virtual("activities").get(function (this: BugInt) {
   };
 });
 
-// Compound indexes for faster queries
 BugSchema.index({ projectId: 1, status: 1 });
 BugSchema.index({ projectId: 1, priority: 1 });
 BugSchema.index({ projectId: 1, assigneeId: 1 });
 BugSchema.index({ labels: 1, projectId: 1 });
 
-// Pre-save hook for status changes
 BugSchema.pre("save", function (this: BugInt, next) {
-  // @ts-ignore
   if (
     typeof this.isModified === "function" &&
     this.isModified("status") &&
