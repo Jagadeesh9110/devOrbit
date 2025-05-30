@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
         user: result.data.user,
       });
 
-      // Set auth cookies
       return setAuthCookies(
         response,
         result.data.accessToken,

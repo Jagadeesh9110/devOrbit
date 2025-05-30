@@ -3,7 +3,7 @@ import React, { ReactNode } from "react";
 interface ButtonProps {
   children: ReactNode;
   type?: "button" | "submit" | "reset";
-  variant?: "primary" | "secondary" | "outline" | "accent";
+  variant?: "primary" | "secondary" | "outline" | "accent" | "destructive";
   size?: "sm" | "md" | "lg";
   fullWidth?: boolean;
   disabled?: boolean;
@@ -43,6 +43,7 @@ const Button = ({
       "bg-slate-700 text-white hover:bg-slate-700/90 focus:ring-slate-700",
     outline:
       "border border-primary-600 bg-white text-primary-700 hover:bg-primary-50 focus:ring-primary-600",
+    destructive: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
   };
 
   const widthStyles = fullWidth ? "w-full" : "";
@@ -61,4 +62,4 @@ const Button = ({
   );
 };
 
-export default Button; // Make sure this is a default export
+export default Button;

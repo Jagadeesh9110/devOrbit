@@ -2,16 +2,25 @@ import mongoose, { Schema, Document, model } from "mongoose";
 
 export interface TeamMember {
   userId: mongoose.Types.ObjectId;
-  role: string;
+  role:
+    | "Project Manager"
+    | "Team Lead"
+    | "Senior Developer"
+    | "Developer"
+    | "QA Engineer";
   joinedAt: Date;
 }
 
 export interface ProjectInt extends Document {
   name: string;
   description?: string;
+  status: "Active" | "Archived";
   team: mongoose.Types.ObjectId[];
   teamMembers: TeamMember[];
   managerId: mongoose.Types.ObjectId;
+  createdBy: mongoose.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ProjectSchema: Schema = new Schema<ProjectInt>(
@@ -19,9 +28,18 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
     name: {
       type: String,
       required: [true, "Project name is required"],
+      trim: true,
+      maxlength: 100,
     },
     description: {
       type: String,
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: ["Active", "Archived"],
+      default: "Active",
+      index: true,
     },
     team: [
       {
@@ -39,7 +57,13 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
         role: {
           type: String,
           required: true,
-          enum: ["Developer", "Tester", "Project Manager", "Team Manager"],
+          enum: [
+            "Project Manager",
+            "Team Lead",
+            "Senior Developer",
+            "Developer",
+            "QA Engineer",
+          ],
         },
         joinedAt: {
           type: Date,
@@ -51,11 +75,39 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      immutable: true,
+      index: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
 
-ProjectSchema.index({ managerId: 1 });
+ProjectSchema.index({ status: 1 });
+ProjectSchema.index({ "teamMembers.userId": 1 });
 
-export const Project = model<ProjectInt>("Project", ProjectSchema);
+ProjectSchema.virtual("memberCount").get(function (this: ProjectInt) {
+  return this.teamMembers.length;
+});
+
+ProjectSchema.virtual("activities").get(function (this: ProjectInt) {
+  return {
+    created: this.createdAt,
+    updated: this.updatedAt,
+    members: this.teamMembers.length,
+  };
+});
+
+const Project =
+  mongoose.models.Project || model<ProjectInt>("Project", ProjectSchema);
+
+export { Project };

@@ -181,7 +181,6 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
-    // Open the popup with the correct URL and features
     const popup = window.open(
       "/api/auth/github?popup=true",
       "GitHub Login",
@@ -194,15 +193,25 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
       return;
     }
 
-    // Message handler
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
 
       if (event.data.type === "GITHUB_OAUTH_SUCCESS") {
         window.removeEventListener("message", handleMessage);
+
+        try {
+          // Set cookies in the main window
+          document.cookie = `accessToken=${event.data.tokens.accessToken}; path=/; max-age=900; HttpOnly; SameSite=Lax`;
+          document.cookie = `refreshToken=${event.data.tokens.refreshToken}; path=/; max-age=604800; HttpOnly; SameSite=Lax`;
+
+          router.push("/dashboard");
+          router.refresh();
+        } catch (error) {
+          console.error("Error setting cookies:", error);
+          setError("Authentication failed");
+        }
+
         setIsLoading(false);
-        router.push("/dashboard");
-        router.refresh();
       } else if (event.data.type === "GITHUB_OAUTH_ERROR") {
         window.removeEventListener("message", handleMessage);
         setError(event.data.error || "GitHub login failed");
@@ -212,20 +221,13 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
 
     window.addEventListener("message", handleMessage);
 
-    // Check if popup is closed
-    const interval = setInterval(() => {
+    const checkPopupClosed = setInterval(() => {
       if (popup.closed) {
-        clearInterval(interval);
+        clearInterval(checkPopupClosed);
         window.removeEventListener("message", handleMessage);
         setIsLoading(false);
       }
     }, 500);
-
-    // Cleanup function
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("message", handleMessage);
-    };
   };
 
   return (

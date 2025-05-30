@@ -111,65 +111,46 @@ export async function GET(request: NextRequest) {
     });
 
     if (isPopup) {
-      const userData = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isVerified: user.isVerified,
-      };
-
       const html = `
+        <!DOCTYPE html>
         <html>
           <head>
             <title>GitHub Authentication</title>
+            <script>
+              (function() {
+                try {
+                  if (window.opener) {
+                    window.opener.postMessage({
+                      type: "GITHUB_OAUTH_SUCCESS",
+                      tokens: {
+                        accessToken: "${accessToken}",
+                        refreshToken: "${refreshToken}"
+                      }
+                    }, "${request.nextUrl.origin}");
+                    window.close();
+                  }
+                } catch (error) {
+                  console.error("Error posting message:", error);
+                  if (window.opener) {
+                    window.opener.postMessage({
+                      type: "GITHUB_OAUTH_ERROR",
+                      error: "Failed to complete authentication"
+                    }, "${request.nextUrl.origin}");
+                    window.close();
+                  }
+                }
+              })();
+            </script>
           </head>
           <body>
-            <script>
-              try {
-                const userData = ${JSON.stringify(userData)};
-                if (window.opener) {
-                  window.opener.postMessage(
-                    { 
-                      type: "GITHUB_OAUTH_SUCCESS", 
-                      user: userData
-                    },
-                    "${request.nextUrl.origin}"
-                  );
-                  // Close the popup immediately after sending the message
-                  window.close();
-                } else {
-                  // If no opener, redirect to dashboard
-                  window.location.href = "/dashboard";
-                }
-              } catch (error) {
-                console.error("OAuth error:", error);
-                if (window.opener) {
-                  window.opener.postMessage(
-                    { 
-                      type: "GITHUB_OAUTH_ERROR", 
-                      error: "Authentication failed" 
-                    },
-                    "${request.nextUrl.origin}"
-                  );
-                  window.close();
-                } else {
-                  window.location.href = "/auth/login?error=Authentication failed";
-                }
-              }
-            </script>
             <p>Authentication successful. Closing window...</p>
           </body>
         </html>
       `;
 
-      const response = new NextResponse(html, {
-        headers: {
-          "Content-Type": "text/html",
-        },
+      return new NextResponse(html, {
+        headers: { "Content-Type": "text/html" },
       });
-
-      return setAuthCookies(response, accessToken, refreshToken);
     } else {
       // Direct navigation - redirect to dashboard with tokens
       const response = NextResponse.redirect(

@@ -7,15 +7,17 @@ export interface IUser extends Document {
   password?: string;
   image?: string;
   isVerified: boolean;
-  verificationToken: String | null;
+  verificationToken: string | null;
   verificationTokenExpiry: Date | null;
-  resetToken: String | null;
+  resetToken: string | null;
   resetTokenExpiry: Date | null;
   role: "Admin" | "Project Manager" | "Developer" | "Tester";
   teamIds: mongoose.Types.ObjectId[];
   badges: Badge[];
   authProvider?: "GOOGLE" | "GITHUB";
   authProviderId?: string;
+  notificationsEnabled: boolean;
+  themePreference: "light" | "dark" | "system";
   comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -47,7 +49,6 @@ const userSchema = new Schema<IUser>(
       validate: {
         validator: function (this: IUser, value: string | null) {
           if (this.authProvider) return true;
-
           return value != null && value.length >= 8;
         },
         message: "Password is required and must be at least 8 characters long",
@@ -102,6 +103,15 @@ const userSchema = new Schema<IUser>(
     authProviderId: {
       type: String,
     },
+    notificationsEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    themePreference: {
+      type: String,
+      enum: ["light", "dark", "system"],
+      default: "system",
+    },
   },
   {
     timestamps: true,
@@ -110,7 +120,6 @@ const userSchema = new Schema<IUser>(
 
 userSchema.pre<IUser>("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
-
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

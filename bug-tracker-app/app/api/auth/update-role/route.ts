@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user's role
     const user = await User.findByIdAndUpdate(
       checkData.user.id,
       { role },
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate new tokens with updated role
     const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
       generateTokens({
         userId: user._id.toString(),
@@ -78,7 +76,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Set new auth cookies
     return setAuthCookies(jsonResponse, newAccessToken, newRefreshToken);
   } catch (error) {
     console.error("Role update error:", error);

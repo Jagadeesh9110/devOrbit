@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (success && accessToken) {
-      const response = NextResponse.json({ success: true });
+      const response = NextResponse.json({ success: true, accessToken });
 
       response.cookies.set({
         name: "accessToken",

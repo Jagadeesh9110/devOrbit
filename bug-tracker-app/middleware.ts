@@ -19,37 +19,51 @@ const publicPaths = [
   "/api/auth/verify-email",
 ];
 
+const isPublicPath = (pathname: string) =>
+  publicPaths.some((path) => pathname.startsWith(path)) ||
+  pathname.startsWith("/_next") ||
+  pathname.startsWith("/static") ||
+  pathname.includes(".");
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (
-    publicPaths.some((path) => pathname.startsWith(path)) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/static") ||
-    pathname.includes(".")
-  ) {
+  // Skip middleware for public paths
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
   const { accessToken, refreshToken } = getTokenFromCookies(request);
 
+  // No tokens available, redirect to login
   if (!accessToken && !refreshToken) {
     return redirectToLogin(request);
   }
 
   try {
+    // Try to verify access token first
     if (accessToken) {
       try {
         await verifyEdgeToken(accessToken);
-        return NextResponse.next();
+        const response = NextResponse.next();
+        // Ensure the access token is properly set in the response
+        response.cookies.set({
+          name: "accessToken",
+          value: accessToken,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 15 * 60, // 15 minutes
+        });
+        return response;
       } catch (error) {
+        // Access token invalid, try refresh token
         if (refreshToken) {
           const { success, accessToken: newAccessToken } =
             await refreshEdgeToken(refreshToken);
-
           if (success && newAccessToken) {
             const response = NextResponse.next();
-
             response.cookies.set({
               name: "accessToken",
               value: newAccessToken,
@@ -59,22 +73,19 @@ export async function middleware(request: NextRequest) {
               path: "/",
               maxAge: 15 * 60,
             });
-
             return response;
           }
         }
-        return redirectToLogin(request);
       }
     }
 
+    // Try refresh token if no access token
     if (refreshToken) {
       const { success, accessToken: newAccessToken } = await refreshEdgeToken(
         refreshToken
       );
-
       if (success && newAccessToken) {
         const response = NextResponse.next();
-
         response.cookies.set({
           name: "accessToken",
           value: newAccessToken,
@@ -84,15 +95,16 @@ export async function middleware(request: NextRequest) {
           path: "/",
           maxAge: 15 * 60,
         });
-
         return response;
       }
     }
 
+    // If we get here, no valid tokens were found
     return redirectToLogin(request);
   } catch (error) {
     console.error("Middleware error:", error);
     const response = redirectToLogin(request);
+    // Clear invalid tokens
     response.cookies.delete("accessToken");
     response.cookies.delete("refreshToken");
     return response;
@@ -108,14 +120,5 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/).*)"],
 };
