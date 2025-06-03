@@ -1,217 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
-import connectDB from "../../../../lib/db/Connect";
-import User from "../../../../models/userModel";
-import { generateTokens, setAuthCookies } from "../../../../lib/auth";
+import User from "@/models/userModel";
+import connectDB from "@/lib/db/Connect";
+import { generateTokens, setAuthCookies } from "@/lib/auth";
+import { IUser } from "@/models/userModel";
 
-const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
-const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_USER_URL = "https://api.github.com/user";
-const GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 export async function GET(request: NextRequest) {
-  try {
-    await connectDB();
-    const searchParams = request.nextUrl.searchParams;
-    const code = searchParams.get("code");
-    const isPopup = searchParams.get("popup") === "true";
+  await connectDB();
+  const searchParams = request.nextUrl.searchParams;
+  const callbackUrl = searchParams.get("callbackUrl");
+  const role = searchParams.get("role") || "Developer"; // Default role
 
-    if (!code) {
-      const redirectUrl = new URL(GITHUB_AUTH_URL);
-      redirectUrl.searchParams.set(
-        "client_id",
-        process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!
-      );
-      redirectUrl.searchParams.set(
-        "redirect_uri",
-        `${request.nextUrl.origin}/api/auth/github`
-      );
-      redirectUrl.searchParams.set("scope", "user:email");
-      redirectUrl.searchParams.set("state", crypto.randomUUID());
-
-      if (isPopup) {
-        redirectUrl.searchParams.set("popup", "true");
-      }
-
-      return NextResponse.redirect(redirectUrl.toString());
-    }
-
-    const tokenResponse = await axios.post(
-      GITHUB_TOKEN_URL,
-      {
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
-        code,
-      },
-      {
-        headers: {
-          Accept: "application/json",
-        },
-      }
+  if (!GITHUB_CLIENT_ID) {
+    return NextResponse.json(
+      { success: false, message: "GitHub Client ID not configured." },
+      { status: 500 }
     );
-
-    const { access_token } = tokenResponse.data;
-
-    if (!access_token) {
-      throw new Error("Failed to get access token");
-    }
-
-    const [userResponse, emailsResponse] = await Promise.all([
-      axios.get(GITHUB_USER_URL, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      }),
-      axios.get(GITHUB_EMAILS_URL, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      }),
-    ]);
-
-    const userData = userResponse.data;
-    const emails = emailsResponse.data;
-
-    const primaryEmail = emails.find((email: any) => email.primary)?.email;
-
-    if (!primaryEmail) {
-      throw new Error("No primary email found");
-    }
-
-    let user = await User.findOne({ email: primaryEmail });
-
-    if (!user) {
-      user = await User.create({
-        email: primaryEmail,
-        name: userData.name || userData.login,
-        image: userData.avatar_url,
-        isVerified: true,
-        role: "Developer",
-        authProvider: "GITHUB",
-        authProviderId: userData.id?.toString(),
-        verificationToken: null,
-        verificationTokenExpiry: null,
-        resetToken: null,
-        resetTokenExpiry: null,
-        teamIds: [],
-        badges: [],
-      });
-    } else {
-      if (!user.authProvider) {
-        user.authProvider = "GITHUB";
-        user.authProviderId = userData.id?.toString();
-        user.image = userData.avatar_url;
-        await user.save();
-      }
-    }
-
-    const { accessToken, refreshToken } = generateTokens({
-      userId: user._id.toString(),
-      role: user.role,
-    });
-
-    if (isPopup) {
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>GitHub Authentication</title>
-            <script>
-              (function() {
-                try {
-                  if (window.opener) {
-                    window.opener.postMessage({
-                      type: "GITHUB_OAUTH_SUCCESS",
-                      tokens: {
-                        accessToken: "${accessToken}",
-                        refreshToken: "${refreshToken}"
-                      }
-                    }, "${request.nextUrl.origin}");
-                    window.close();
-                  }
-                } catch (error) {
-                  console.error("Error posting message:", error);
-                  if (window.opener) {
-                    window.opener.postMessage({
-                      type: "GITHUB_OAUTH_ERROR",
-                      error: "Failed to complete authentication"
-                    }, "${request.nextUrl.origin}");
-                    window.close();
-                  }
-                }
-              })();
-            </script>
-          </head>
-          <body>
-            <p>Authentication successful. Closing window...</p>
-          </body>
-        </html>
-      `;
-
-      return new NextResponse(html, {
-        headers: { "Content-Type": "text/html" },
-      });
-    } else {
-      // Direct navigation - redirect to dashboard with tokens
-      const response = NextResponse.redirect(
-        new URL("/dashboard", request.url)
-      );
-      return setAuthCookies(response, accessToken, refreshToken);
-    }
-  } catch (error) {
-    console.error("GitHub OAuth error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Authentication failed";
-
-    if (request.nextUrl.searchParams.get("popup") === "true") {
-      const errorHtml = `
-        <html>
-          <body>
-            <script>
-              try {
-                if (window.opener) {
-                  window.opener.postMessage(
-                    { 
-                      type: "GITHUB_OAUTH_ERROR", 
-                      error: "${errorMessage}" 
-                    },
-                    "${request.nextUrl.origin}"
-                  );
-                  window.close();
-                } else {
-                  window.close();
-                }
-              } catch (error) {
-                if (window.opener) {
-                  window.opener.postMessage(
-                    { 
-                      type: "GITHUB_OAUTH_ERROR", 
-                      error: "${errorMessage}" 
-                    },
-                    "${request.nextUrl.origin}"
-                  );
-                  window.close();
-                } else {
-                  window.close();
-                }
-              }
-            </script>
-          </body>
-        </html>
-      `;
-      return new NextResponse(errorHtml, {
-        headers: {
-          "Content-Type": "text/html",
-        },
-      });
-    } else {
-      const response = NextResponse.redirect(
-        new URL(
-          `/auth/login?error=${encodeURIComponent(errorMessage)}`,
-          request.url
-        )
-      );
-      return response;
-    }
   }
+  if (!callbackUrl) {
+    return NextResponse.json(
+      { success: false, message: "Callback URL is missing." },
+      { status: 400 }
+    );
+  }
+
+  const state = JSON.stringify({ callbackUrl, role });
+  const githubOAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${APP_URL}/api/auth/oauth-callback/github&scope=user:email&state=${encodeURIComponent(
+    state
+  )}`;
+
+  return NextResponse.redirect(githubOAuthUrl);
 }
+
+// POST route is removed as it was for the popup flow communication
+// The redirect flow will be handled by a new callback route (e.g., /api/auth/oauth-callback/github)

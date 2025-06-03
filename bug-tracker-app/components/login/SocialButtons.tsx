@@ -3,42 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { FaGoogle, FaGithub } from "react-icons/fa";
 import { useRouter } from "next/navigation";
-
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: GoogleCredentialResponse) => void;
-            auto_select: boolean;
-            cancel_on_tap_outside: boolean;
-            context: string;
-            ux_mode: string;
-          }) => void;
-          renderButton: (
-            element: HTMLElement,
-            options: {
-              type: string;
-              theme: string;
-              size: string;
-              text: string;
-              shape: string;
-              width: number;
-              logo_alignment: string;
-            }
-          ) => void;
-        };
-      };
-    };
-  }
-}
-
-interface GoogleCredentialResponse {
-  credential: string;
-  select_by: string;
-}
+import { GoogleCredentialResponse } from "../../types/google";
 
 interface GoogleUser {
   id: string;
@@ -98,8 +63,14 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
           throw new Error("Google Client ID is not configured");
         }
 
-        if (typeof window.google === "undefined") {
-          throw new Error("Google Sign-In script not loaded");
+        if (
+          typeof window.google === "undefined" ||
+          !window.google.accounts ||
+          !window.google.accounts.id
+        ) {
+          throw new Error(
+            "Google Sign-In script not loaded or initialized properly."
+          );
         }
 
         window.google.accounts.id.initialize({
@@ -112,7 +83,7 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
         });
 
         const buttonContainer = document.getElementById("google-signin-button");
-        if (buttonContainer) {
+        if (buttonContainer && window.google.accounts.id.renderButton) {
           window.google.accounts.id.renderButton(buttonContainer, {
             type: "standard",
             theme: "filled_black",
@@ -132,44 +103,46 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
     loadGoogleScript();
   }, [mode]);
 
-  const handleGoogleResponse = async (response: GoogleCredentialResponse) => {
-    try {
-      setIsLoading(true);
-      setError("");
+  const handleGoogleResponse = (response: GoogleCredentialResponse) => {
+    setIsLoading(true);
+    setError("");
 
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          credential: response.credential,
-          mode,
-        }),
+    fetch("/api/auth/google", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        credential: response.credential,
+        mode,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || "Authentication failed");
+        }
+        return data;
+      })
+      .then((data) => {
+        if (data.success) {
+          router.push("/dashboard");
+          router.refresh();
+        } else {
+          setError(data.message || "Authentication failed");
+        }
+      })
+      .catch((error) => {
+        console.error("Google auth error:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "An error occurred during authentication"
+        );
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Authentication failed");
-      }
-
-      if (data.success) {
-        router.push("/dashboard");
-        router.refresh();
-      } else {
-        setError(data.message || "Authentication failed");
-      }
-    } catch (error) {
-      console.error("Google auth error:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "An error occurred during authentication"
-      );
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleGitHubLogin = () => {
@@ -200,7 +173,6 @@ const SocialButtons: React.FC<SocialButtonsProps> = ({ mode = "login" }) => {
         window.removeEventListener("message", handleMessage);
 
         try {
-          // Set cookies in the main window
           document.cookie = `accessToken=${event.data.tokens.accessToken}; path=/; max-age=900; HttpOnly; SameSite=Lax`;
           document.cookie = `refreshToken=${event.data.tokens.refreshToken}; path=/; max-age=604800; HttpOnly; SameSite=Lax`;
 

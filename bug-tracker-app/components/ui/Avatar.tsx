@@ -1,66 +1,48 @@
-"use client";
+import * as React from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 
-interface AvatarProps {
-  src?: string;
-  alt?: string;
-  className?: string;
-  fallback?: string;
-  size?: "sm" | "md" | "lg";
-}
+const Avatar = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
+      className
+    )}
+    {...props}
+  />
+));
+Avatar.displayName = AvatarPrimitive.Root.displayName;
 
-export const Avatar = ({
-  src,
-  alt = "Avatar",
-  className,
-  fallback,
-  size = "md",
-}: AvatarProps) => {
-  const sizeClasses = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-12 w-12",
-  };
+const AvatarImage = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Image>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Image
+    ref={ref}
+    className={cn("aspect-square h-full w-full", className)}
+    {...props}
+  />
+));
+AvatarImage.displayName = AvatarPrimitive.Image.displayName;
 
-  return (
-    <div
-      className={cn(
-        "relative rounded-full overflow-hidden bg-gray-200 flex items-center justify-center",
-        sizeClasses[size],
-        className
-      )}
-    >
-      {src ? (
-        <Image
-          src={src}
-          alt={alt}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 33vw"
-        />
-      ) : (
-        <span className="font-medium text-gray-600">
-          {fallback?.charAt(0).toUpperCase() || "U"}
-        </span>
-      )}
-    </div>
-  );
-};
+const AvatarFallback = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Fallback>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Fallback
+    ref={ref}
+    className={cn(
+      "flex h-full w-full items-center justify-center rounded-full bg-muted",
+      className
+    )}
+    {...props}
+  />
+));
+AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-export const AvatarFallback = ({ children }: { children: React.ReactNode }) => {
-  return <div className="bg-gray-200 rounded-full">{children}</div>;
-};
-
-export const AvatarImage = ({ src, alt }: { src: string; alt: string }) => {
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      fill
-      className="object-cover"
-      sizes="(max-width: 768px) 100vw, 33vw"
-    />
-  );
-};
+export { Avatar, AvatarImage, AvatarFallback };

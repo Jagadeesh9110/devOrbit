@@ -13,10 +13,15 @@ const publicPaths = [
   "/auth/forgot-password",
   "/auth/reset-password",
   "/auth/verify-email",
+  "/auth/callback", // Add client-side callback page
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/refresh",
   "/api/auth/verify-email",
+  "/api/auth/google", // Google OAuth initiation
+  "/api/auth/github", // GitHub OAuth initiation
+  "/api/auth/oauth-callback/google", // Google OAuth server-side callback
+  "/api/auth/oauth-callback/github", // GitHub OAuth server-side callback
 ];
 
 const isPublicPath = (pathname: string) =>

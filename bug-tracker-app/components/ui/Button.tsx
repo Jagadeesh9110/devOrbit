@@ -3,7 +3,13 @@ import React, { ReactNode } from "react";
 interface ButtonProps {
   children: ReactNode;
   type?: "button" | "submit" | "reset";
-  variant?: "primary" | "secondary" | "outline" | "accent" | "destructive";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "outline"
+    | "accent"
+    | "destructive"
+    | "ghost";
   size?: "sm" | "md" | "lg";
   fullWidth?: boolean;
   disabled?: boolean;
@@ -44,6 +50,7 @@ const Button = ({
     outline:
       "border border-primary-600 bg-white text-primary-700 hover:bg-primary-50 focus:ring-primary-600",
     destructive: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+    ghost: "bg-transparent text-gray-700 hover:bg-gray-100",
   };
 
   const widthStyles = fullWidth ? "w-full" : "";

@@ -1,10 +1,21 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
-import { Mail, Lock, ArrowRight } from "lucide-react";
-import FormField from "../ui/FormField";
-import Button from "../ui/Button";
-import SocialButtons from "./SocialButtons";
-import Link from "next/link";
+import { Mail, Lock, Github, Eye, EyeOff } from "lucide-react"; // Google icon can be Mail or a specific Google icon if you add one
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Input } from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import { Label } from "@/components/ui/Label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Separator } from "@/components/ui/Separator";
+import { Alert, AlertDescription } from "@/components/ui/Alert";
 
 const LoginForm: React.FC = () => {
   const router = useRouter();
@@ -17,15 +28,18 @@ const LoginForm: React.FC = () => {
     email: "",
     password: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
       setSuccessMessage("Registration successful! Please log in.");
     } else if (searchParams.get("verified") === "true") {
       setSuccessMessage("Email verified successfully! You can now log in.");
+    } else if (searchParams.get("error")) {
+      setSubmitError(searchParams.get("error") || "An unknown error occurred.");
     }
   }, [searchParams]);
 
@@ -100,111 +114,152 @@ const LoginForm: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+  const handleSocialLogin = async (provider: string) => {
+    setIsSubmitting(true);
+    setSubmitError("");
+    // For redirect flow, we simply navigate to the backend API endpoint
+    // The backend will handle the redirect to the OAuth provider
+    const currentPath = window.location.pathname + window.location.search;
+    const from = searchParams.get("from") || "/dashboard";
+    const callbackUrl = `${
+      window.location.origin
+    }/auth/callback?provider=${provider}&from=${encodeURIComponent(from)}`;
+
+    if (provider === "google") {
+      // Redirect to your backend Google auth route
+      router.push(
+        `/api/auth/google?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      );
+    } else if (provider === "github") {
+      // Redirect to your backend GitHub auth route
+      router.push(
+        `/api/auth/github?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      );
+    } else {
+      console.warn(`No handler for provider: ${provider}`);
+      setSubmitError(`Login with ${provider} is not supported yet.`);
+      setIsSubmitting(false);
+    }
+    // No finally block needed to set isSubmitting to false here, as the page will redirect.
+  };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8 transition-all duration-300 hover:shadow-xl">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h2>
-        <p className="text-gray-600">Sign in to continue to BugTracker</p>
-      </div>
-
-      {successMessage && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-600">
-          {successMessage}
-        </div>
-      )}
-
-      {submitError && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-          {submitError}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <FormField
-          label="Email"
-          name="email"
-          type="email"
-          placeholder="your@email.com"
-          value={formData.email}
-          onChange={handleChange}
-          icon={<Mail size={18} />}
-          error={errors.email}
-        />
-
-        <FormField
-          label="Password"
-          name="password"
-          type="password"
-          placeholder="••••••••"
-          value={formData.password}
-          onChange={handleChange}
-          icon={<Lock size={18} />}
-          error={errors.password}
-        />
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              className="h-4 w-4 rounded border-primary-600 text-primary-600 focus:ring-primary-500"
-            />
-            <label
-              htmlFor="remember-me"
-              className="ml-2 block text-sm text-slate-600"
+    <div className="w-full max-w-md mx-auto">
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl text-center">Sign in</CardTitle>
+          <CardDescription className="text-center">
+            Enter your credentials to access BugTracker
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {successMessage && (
+            <Alert
+              variant="default"
+              className="text-green-600 bg-green-50 border border-green-200"
             >
-              Remember me
-            </label>
-          </div>
-          <div>
-            <Link
-              href="/forgot-password"
-              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+              <AlertDescription>{successMessage}</AlertDescription>
+            </Alert>
+          )}
+          {submitError && (
+            <Alert variant="destructive">
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <Button
+              variant="outline"
+              onClick={() => handleSocialLogin("google")}
+              disabled={isSubmitting}
             >
-              Forgot password?
-            </Link>
+              <Mail className="h-4 w-4 mr-2" /> Google
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSocialLogin("github")}
+              disabled={isSubmitting}
+            >
+              <Github className="h-4 w-4 mr-2" /> GitHub
+            </Button>
           </div>
-        </div>
 
-        <Button
-          type="submit"
-          fullWidth
-          rightIcon={<ArrowRight size={18} />}
-          disabled={isSubmitting}
-          variant="primary"
-        >
-          {isSubmitting ? "Signing in..." : "Sign in"}
-        </Button>
-      </form>
-
-      <div className="mt-8">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                or continue with email
+              </span>
+            </div>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-slate-500">
-              Or continue with
-            </span>
-          </div>
-        </div>
 
-        <SocialButtons mode="login" />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={isSubmitting}
+              />
+              {errors.email && (
+                <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+              )}
+            </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-slate-600">
-            Don't have an account?{" "}
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {errors.password && (
+                <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+
+          <div className="text-center text-sm">
+            <span className="text-gray-600">Don't have an account? </span>
             <Link
               href="/auth/register"
-              className="font-medium text-primary-600 hover:text-primary-700 transition-colors"
+              className="text-blue-600 hover:underline font-medium"
             >
-              Register now
+              Sign up
             </Link>
-          </p>
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

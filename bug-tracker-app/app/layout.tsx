@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import FooterSection from "@/components/layout/footer/FooterSection";
+import Script from "next/script"; // Import Script component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,6 +32,11 @@ export default function RootLayout({
           <main className="flex-1 flex flex-col">{children}</main>
           <FooterSection />
         </div>
+        {/* Add Google Identity Services script */}
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="beforeInteractive"
+        />
       </body>
     </html>
   );
