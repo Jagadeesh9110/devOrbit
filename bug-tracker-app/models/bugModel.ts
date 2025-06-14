@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, model } from "mongoose";
 
-export interface BugInt extends Document {
+export interface IBug extends Document {
   _id: mongoose.Types.ObjectId;
   title: string;
   description: string;
@@ -28,6 +28,7 @@ export interface BugInt extends Document {
       userId: mongoose.Types.ObjectId;
       createdAt: Date;
     }>;
+    timeSpent?: number; // Added for time tracking (hours)
     createdAt: Date;
     updatedAt: Date;
   }>;
@@ -49,6 +50,22 @@ export interface BugInt extends Document {
   reopenedBy?: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
+  // Virtual methods
+  activities: {
+    created: Date;
+    updated: Date;
+    comments: number;
+  };
+  commentCount: number;
+  viewerCount: number;
+  // Instance methods
+  updateViewer(userId: mongoose.Types.ObjectId): Promise<IBug>;
+  addComment(
+    text: string,
+    authorId: mongoose.Types.ObjectId,
+    mentions?: mongoose.Types.ObjectId[],
+    timeSpent?: number // Added for time tracking
+  ): Promise<IBug>;
 }
 
 export interface BugInput {
@@ -64,6 +81,7 @@ export interface BugInput {
   comments?: Array<{
     text: string;
     author: mongoose.Types.ObjectId;
+    timeSpent?: number; // Added for time tracking
     createdAt: Date;
   }>;
   attachments?: string[];
@@ -81,137 +99,197 @@ export interface BugInput {
   updatedAt?: Date;
 }
 
-const BugSchema: Schema = new Schema<BugInt>(
+const commentSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true, maxlength: 100 },
-    description: { type: String, required: true, trim: true },
+    text: {
+      type: String,
+      required: [true, "Comment text is required"],
+      trim: true,
+    },
+    author: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "Comment author is required"],
+    },
+    mentions: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    attachments: [
+      {
+        url: { type: String, required: true },
+        type: { type: String, enum: ["image", "file"], required: true },
+        name: { type: String, required: true },
+        size: { type: Number, required: true, min: 0 },
+      },
+    ],
+    reactions: [
+      {
+        emoji: { type: String, required: true },
+        userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    timeSpent: {
+      type: Number, // Hours spent
+      min: [0, "Time spent cannot be negative"],
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
+const bugSchema = new mongoose.Schema<IBug>(
+  {
+    title: {
+      type: String,
+      required: [true, "Title is required"],
+      trim: true,
+      maxlength: [100, "Title cannot exceed 100 characters"],
+    },
+    description: {
+      type: String,
+      required: [true, "Description is required"],
+      trim: true,
+    },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Resolved", "Closed"],
+      enum: {
+        values: ["Open", "In Progress", "Resolved", "Closed"],
+        message: "Status must be one of: Open, In Progress, Resolved, Closed",
+      },
       default: "Open",
       index: true,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Creator is required"],
       immutable: true,
     },
     projectId: {
       type: Schema.Types.ObjectId,
       ref: "Project",
-      required: true,
+      required: [true, "Project ID is required"],
       index: true,
     },
-    assigneeId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assigneeId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High", "Critical"],
+      enum: {
+        values: ["Low", "Medium", "High", "Critical"],
+        message: "Priority must be one of: Low, Medium, High, Critical",
+      },
       default: "Medium",
       index: true,
     },
     severity: {
       type: String,
-      enum: ["Minor", "Major", "Critical"],
-      required: true,
+      enum: {
+        values: ["Minor", "Major", "Critical"],
+        message: "Severity must be one of: Minor, Major, Critical",
+      },
+      required: [true, "Severity is required"],
       default: "Major",
       index: true,
     },
     environment: {
       type: String,
-      enum: ["Development", "Staging", "Production"],
+      enum: {
+        values: ["Development", "Staging", "Production"],
+        message: "Environment must be one of: Development, Staging, Production",
+      },
       default: "Development",
       index: true,
     },
-    labels: [{ type: String, index: true }],
+    labels: [
+      {
+        type: String,
+        index: true,
+        trim: true,
+      },
+    ],
     linkedPRs: [
       {
         url: { type: String, required: true },
-        platform: { type: String, enum: ["GitHub", "GitLab"], required: true },
-      },
-    ],
-    comments: [
-      {
-        text: {
+        platform: {
           type: String,
+          enum: ["GitHub", "GitLab"],
           required: true,
-          trim: true,
-        },
-        author: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-        },
-        mentions: [
-          {
-            type: Schema.Types.ObjectId,
-            ref: "User",
-          },
-        ],
-        attachments: [
-          {
-            url: String,
-            type: {
-              type: String,
-              enum: ["image", "file"],
-            },
-            name: String,
-            size: Number,
-          },
-        ],
-        reactions: [
-          {
-            emoji: String,
-            userId: {
-              type: Schema.Types.ObjectId,
-              ref: "User",
-            },
-            createdAt: {
-              type: Date,
-              default: Date.now,
-            },
-          },
-        ],
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-        updatedAt: {
-          type: Date,
-          default: Date.now,
         },
       },
     ],
+    comments: [commentSchema],
     attachments: [
       {
         url: { type: String, required: true },
-        type: { type: String, enum: ["image", "log", "other"], required: true },
+        type: {
+          type: String,
+          enum: ["image", "log", "other"],
+          required: true,
+        },
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
     viewers: [
       {
-        userId: {
-          type: Schema.Types.ObjectId,
-          ref: "User",
-          required: true,
-        },
-        lastViewed: {
-          type: Date,
-          default: Date.now,
-        },
-        viewCount: {
-          type: Number,
-          default: 1,
-        },
+        userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+        lastViewed: { type: Date, default: Date.now },
+        viewCount: { type: Number, default: 1, min: 1 },
       },
     ],
-    resolvedBy: { type: Schema.Types.ObjectId, ref: "User", index: true },
-    closedBy: { type: Schema.Types.ObjectId, ref: "User", index: true },
-    dueDate: { type: Date },
-    expectedFixDate: { type: Date },
-    reopenedCount: { type: Number, default: 0 },
-    reopenedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    resolvedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    closedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    dueDate: {
+      type: Date,
+      validate: {
+        validator(value: Date) {
+          return !value || value > new Date();
+        },
+        message: "Due date must be in the future",
+      },
+    },
+    expectedFixDate: {
+      type: Date,
+      validate: {
+        validator(value: Date) {
+          return !value || value > new Date();
+        },
+        message: "Expected fix date must be in the future",
+      },
+    },
+    reopenedCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    reopenedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   {
     timestamps: true,
@@ -220,7 +298,7 @@ const BugSchema: Schema = new Schema<BugInt>(
   }
 );
 
-BugSchema.virtual("activities").get(function (this: BugInt) {
+bugSchema.virtual("activities").get(function (this: IBug) {
   return {
     created: this.createdAt,
     updated: this.updatedAt,
@@ -228,17 +306,17 @@ BugSchema.virtual("activities").get(function (this: BugInt) {
   };
 });
 
-BugSchema.virtual("commentCount").get(function (this: BugInt) {
+bugSchema.virtual("commentCount").get(function (this: IBug) {
   return this.comments.length;
 });
 
-BugSchema.virtual("viewerCount").get(function (this: BugInt) {
+bugSchema.virtual("viewerCount").get(function (this: IBug) {
   return this.viewers.length;
 });
 
-BugSchema.methods.updateViewer = async function (
+bugSchema.methods.updateViewer = async function (
   userId: mongoose.Types.ObjectId
-) {
+): Promise<IBug> {
   const viewerIndex = this.viewers.findIndex(
     (viewer: { userId: mongoose.Types.ObjectId }) =>
       viewer.userId.toString() === userId.toString()
@@ -255,41 +333,53 @@ BugSchema.methods.updateViewer = async function (
     this.viewers[viewerIndex].viewCount += 1;
   }
 
-  return this.save();
+  return await this.save();
 };
 
-BugSchema.methods.addComment = async function (
+bugSchema.methods.addComment = async function (
   text: string,
   authorId: mongoose.Types.ObjectId,
-  mentions: mongoose.Types.ObjectId[] = []
-) {
+  mentions: mongoose.Types.ObjectId[] = [],
+  timeSpent?: number
+): Promise<IBug> {
   this.comments.push({
     text,
     author: authorId,
     mentions,
+    attachments: [],
+    reactions: [],
+    timeSpent,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
-  return this.save();
+  return await this.save();
 };
 
-BugSchema.index({ projectId: 1, status: 1 });
-BugSchema.index({ projectId: 1, priority: 1 });
-BugSchema.index({ projectId: 1, assigneeId: 1 });
-BugSchema.index({ labels: 1, projectId: 1 });
+// Indexes
+bugSchema.index({ projectId: 1, status: 1 });
+bugSchema.index({ projectId: 1, priority: 1 });
+bugSchema.index({ projectId: 1, assigneeId: 1 });
+bugSchema.index({ labels: 1, projectId: 1 });
+bugSchema.index({ createdAt: -1 });
+bugSchema.index({ updatedAt: -1 });
 
-BugSchema.pre("save", function (this: BugInt, next) {
-  if (
-    typeof this.isModified === "function" &&
-    this.isModified("status") &&
-    this.status === "Resolved"
-  ) {
+bugSchema.pre<IBug>("save", function (next) {
+  if (this.isModified("status") && this.status === "Resolved") {
     this.updatedAt = new Date();
   }
+  if (this.isModified("comments")) {
+    const now = new Date();
+    this.comments.forEach((comment) => {
+      if (!comment.updatedAt || comment.updatedAt < comment.createdAt) {
+        comment.updatedAt = now;
+      }
+    });
+  }
+
   next();
 });
 
-const Bug = mongoose.models.Bug || model<BugInt>("Bug", BugSchema);
+const Bug = mongoose.models.Bug || model<IBug>("Bug", bugSchema);
 
-export { Bug };
+export default Bug;

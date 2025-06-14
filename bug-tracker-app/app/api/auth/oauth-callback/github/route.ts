@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
     const { callbackUrl, role: stateRole } = JSON.parse(state);
     const defaultRole = stateRole || "Developer";
 
-    // 1. Exchange code for access token
     const tokenResponse = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
@@ -46,7 +45,6 @@ export async function GET(request: NextRequest) {
       throw new Error("Failed to get GitHub access token.");
     }
 
-    // 2. Fetch user data from GitHub
     const [userResponse, emailsResponse] = await Promise.all([
       axios.get("https://api.github.com/user", {
         headers: { Authorization: `Bearer ${access_token}` },
@@ -99,8 +97,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!user) {
-      // This case should ideally not be reached if User.create is successful
-      // or if an existing user is found and updated.
       console.error("User object is null after creation/update attempt.");
       throw new Error("Failed to process user information.");
     }
@@ -124,7 +120,7 @@ export async function GET(request: NextRequest) {
           redirectUrl = `${originalCallbackUrl}&error=GitHub login failed`;
         }
       } catch (e) {
-        // State parsing failed
+        console.log("Error parsing state paramerter:", e);
       }
     }
     return NextResponse.redirect(redirectUrl);

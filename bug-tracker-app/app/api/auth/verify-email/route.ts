@@ -53,7 +53,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Update user verification status
     user.isVerified = true;
     user.verificationToken = null;
     user.verificationTokenExpiry = null;

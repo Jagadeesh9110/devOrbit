@@ -96,7 +96,9 @@ export async function GET(request: NextRequest) {
         if (originalCallbackUrl) {
           redirectUrl = `${originalCallbackUrl}&error=Google login failed`;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.log("Error parsing state paramerter:", e);
+      }
     }
     return NextResponse.redirect(redirectUrl);
   }

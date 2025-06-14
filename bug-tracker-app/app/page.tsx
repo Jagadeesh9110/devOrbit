@@ -10,9 +10,9 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react"; // Added useEffect for potential parallax
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const features = [

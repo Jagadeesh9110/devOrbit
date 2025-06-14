@@ -1,23 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
-import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
-import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Switch } from "@/components/ui/Switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import {
   Select,
   SelectContent,
@@ -25,874 +16,930 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { Textarea } from "@/components/ui/TextArea";
+import { Badge } from "@/components/ui/Badge";
+import { Avatar, AvatarFallback } from "@/components/ui/Avatar";
 import {
-  User,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table";
+import { Alert, AlertDescription } from "@/components/ui/Alert";
+import {
   Bell,
+  Mail,
   Shield,
   Palette,
-  Users,
-  Plug,
+  Globe,
   Trash2,
-  LogOut,
+  Key,
+  Users,
+  ExternalLink,
+  UserPlus,
+  Crown,
+  MoreHorizontal,
+  CreditCard,
+  Download,
+  Calendar,
+  Check,
 } from "lucide-react";
 
-interface UserSettings {
-  _id: string;
+interface Notifications {
+  email: boolean;
+  push: boolean;
+  slack: boolean;
+  bugAssigned: boolean;
+  bugResolved: boolean;
+  weeklyReport: boolean;
+}
+
+interface Profile {
   name: string;
   email: string;
-  image: string;
   role: string;
-  authProvider?: "GOOGLE" | "GITHUB";
-  isVerified: boolean;
-  notificationsEnabled: boolean;
-  themePreference: "light" | "dark" | "system";
-  phoneNumber?: string;
-  timezone?: string;
-  twoFactorEnabled?: boolean;
-  sessions?: Array<{ id: string; device: string; lastActive: string }>;
-  // For notification settings
-  emailNotifications?: boolean;
-  smsNotifications?: boolean;
-  pushNotifications?: boolean;
+  timezone: string;
+  language: string;
 }
 
-export default function SettingsPage() {
+interface TeamMember {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  status: "Active" | "Pending";
+  joinDate: string;
+}
+
+interface BillingHistory {
+  id: number;
+  date: string;
+  amount: string;
+  plan: string;
+  status: "Paid";
+  invoice: string;
+}
+
+const Settings = () => {
   const router = useRouter();
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+
+  const [notifications, setNotifications] = useState<Notifications>({
+    email: true,
+    push: false,
+    slack: true,
+    bugAssigned: true,
+    bugResolved: true,
+    weeklyReport: false,
   });
-  const [passwordError, setPasswordError] = useState("");
-  const [activeTab, setActiveTab] = useState("profile");
 
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch("/api/profile", {
-        credentials: "include",
-      });
+  const [profile, setProfile] = useState<Profile>({
+    name: "John Doe",
+    email: "john.doe@company.com",
+    role: "Senior Developer",
+    timezone: "America/Los_Angeles",
+    language: "English",
+  });
 
-      if (response.status === 401) {
-        const refreshResponse = await fetch("/api/auth/refresh", {
-          method: "POST",
-          credentials: "include",
-        });
+  const [teamMembers] = useState<TeamMember[]>([
+    {
+      id: 1,
+      name: "John Doe",
+      email: "john.doe@company.com",
+      role: "Admin",
+      status: "Active",
+      joinDate: "2024-01-15",
+    },
+    {
+      id: 2,
+      name: "Jane Smith",
+      email: "jane.smith@company.com",
+      role: "Developer",
+      status: "Active",
+      joinDate: "2024-02-20",
+    },
+    {
+      id: 3,
+      name: "Mike Johnson",
+      email: "mike.johnson@company.com",
+      role: "QA Tester",
+      status: "Pending",
+      joinDate: "2024-03-01",
+    },
+    {
+      id: 4,
+      name: "Sarah Wilson",
+      email: "sarah.wilson@company.com",
+      role: "Developer",
+      status: "Active",
+      joinDate: "2024-01-30",
+    },
+  ]);
 
-        if (refreshResponse.ok) {
-          return fetchSettings();
-        }
-        router.push("/login");
-        return;
-      }
+  const [billingHistory] = useState<BillingHistory[]>([
+    {
+      id: 1,
+      date: "2025-03-01",
+      amount: "$29.99",
+      plan: "Pro Plan",
+      status: "Paid",
+      invoice: "INV-001",
+    },
+    {
+      id: 2,
+      date: "2025-02-01",
+      amount: "$29.99",
+      plan: "Pro Plan",
+      status: "Paid",
+      invoice: "INV-002",
+    },
+    {
+      id: 3,
+      date: "2025-01-01",
+      amount: "$29.99",
+      plan: "Pro Plan",
+      status: "Paid",
+      invoice: "INV-003",
+    },
+  ]);
 
-      if (!response.ok) throw new Error(await response.text());
-
-      const data = await response.json();
-      setSettings(data);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      toast.error("Failed to load settings");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleProfileSave = () => {
+    // Simulate saving profile changes (e.g., API call)
+    console.log("Saving profile:", profile);
   };
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    if (!settings) return;
-    const { name, value } = e.target;
-    setSettings({ ...settings, [name]: value });
+  const handleNotificationsSave = () => {
+    // Simulate saving notification preferences (e.g., API call)
+    console.log("Saving notifications:", notifications);
   };
 
-  const handleSelectChange = (name: keyof UserSettings, value: string) => {
-    if (!settings) return;
-    setSettings({ ...settings, [name]: value });
+  const handlePasswordUpdate = () => {
+    // Simulate password update (e.g., API call)
+    console.log("Updating password...");
   };
 
-  const handleSwitchChange = (name: keyof UserSettings, checked: boolean) => {
-    if (!settings) return;
-    setSettings({ ...settings, [name]: checked });
+  const handleGenerateApiKey = () => {
+    // Simulate generating a new API key
+    console.log("Generating new API key...");
   };
 
-  const handleSave = async (section?: string) => {
-    if (!settings) return;
-    setIsUpdating(true);
-
-    let payload: Partial<UserSettings> = {};
-    if (section === "profile") {
-      payload = {
-        name: settings.name,
-        email: settings.email,
-        phoneNumber: settings.phoneNumber,
-        timezone: settings.timezone,
-      };
-    } else if (section === "notifications") {
-      payload = {
-        emailNotifications: settings.emailNotifications,
-        smsNotifications: settings.smsNotifications,
-        pushNotifications: settings.pushNotifications,
-      };
-    } else if (section === "appearance") {
-      payload = { themePreference: settings.themePreference };
-    } else {
-      // General save or specific section not handled here
-      payload = {
-        name: settings.name,
-        email: settings.email,
-        notificationsEnabled: settings.notificationsEnabled,
-        themePreference: settings.themePreference,
-        phoneNumber: settings.phoneNumber,
-        timezone: settings.timezone,
-        emailNotifications: settings.emailNotifications,
-        smsNotifications: settings.smsNotifications,
-        pushNotifications: settings.pushNotifications,
-      };
-    }
-
-    try {
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) throw new Error(await response.text());
-
-      toast.success(
-        `${
-          section
-            ? section.charAt(0).toUpperCase() + section.slice(1)
-            : "Settings"
-        } updated successfully`
-      );
-      fetchSettings(); // Refresh data
-    } catch (error) {
-      console.error("Update error:", error);
-      toast.error(`Failed to update ${section || "settings"}`);
-    } finally {
-      setIsUpdating(false);
-    }
+  const handleInviteMember = () => {
+    // Simulate inviting a new team member
+    console.log("Inviting new team member...");
+    router.push("/settings/invite"); // Example navigation
   };
-  const handleAvatarUpload = async (url: string, publicId: string) => {
-    if (!settings) return;
-
-    try {
-      const response = await fetch("/api/profile/avatar", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ image: url }),
-      });
-
-      if (!response.ok) throw new Error(await response.text());
-
-      toast.success("Avatar updated successfully");
-      fetchSettings(); // Refresh data
-    } catch (error) {
-      console.error("Avatar error:", error);
-      toast.error("Failed to update avatar");
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    if (!settings) return;
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError("All fields are required");
-      return;
-    }
-    if (passwordData.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      return;
-    }
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError("New passwords don't match");
-      return;
-    }
-    setPasswordError("");
-    setIsChangingPassword(true);
-
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(passwordData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to change password");
-      }
-
-      toast.success("Password changed successfully");
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-    } catch (error) {
-      console.error("Password change error:", error);
-      setPasswordError(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-      toast.error("Failed to change password");
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete your account? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/delete-account", {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete account");
-      }
-
-      toast.success("Account deleted successfully");
-      router.push("/");
-    } catch (error) {
-      console.error("Delete account error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete account"
-      );
-    }
-  };
-
-  const handleToggle2FA = async () => {
-    if (!settings) return;
-    setIsUpdating(true);
-    try {
-      const response = await fetch("/api/profile/2fa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ enable: !settings.twoFactorEnabled }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
-      setSettings((prev) =>
-        prev ? { ...prev, twoFactorEnabled: data.twoFactorEnabled } : null
-      );
-      toast.success(
-        `Two-factor authentication ${
-          data.twoFactorEnabled ? "enabled" : "disabled"
-        }`
-      );
-    } catch (error) {
-      console.error("2FA toggle error:", error);
-      toast.error("Failed to update 2FA status");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleRevokeSession = async (sessionId: string) => {
-    if (!settings) return;
-    setIsUpdating(true);
-    try {
-      const response = await fetch(`/api/profile/sessions/${sessionId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error(await response.text());
-      setSettings((prev) =>
-        prev
-          ? {
-              ...prev,
-              sessions: prev.sessions?.filter((s) => s.id !== sessionId),
-            }
-          : null
-      );
-      toast.success("Session revoked successfully");
-    } catch (error) {
-      console.error("Revoke session error:", error);
-      toast.error("Failed to revoke session");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-
-  if (!settings) {
-    return (
-      <div className="container mx-auto py-8">
-        <Card className="w-full max-w-3xl mx-auto shadow-lg">
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Failed to load settings. Please try again.</p>
-            <Button onClick={fetchSettings} className="mt-4">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800 dark:text-white">
-        Settings
-      </h1>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mb-8 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shadow-sm">
-          <TabsTrigger
-            value="profile"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <User className="h-5 w-5" /> Profile
-          </TabsTrigger>
-          <TabsTrigger
-            value="notifications"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <Bell className="h-5 w-5" /> Notifications
-          </TabsTrigger>
-          <TabsTrigger
-            value="security"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <Shield className="h-5 w-5" /> Security
-          </TabsTrigger>
-          <TabsTrigger
-            value="appearance"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <Palette className="h-5 w-5" /> Appearance
-          </TabsTrigger>
-          <TabsTrigger
-            value="team"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <Users className="h-5 w-5" /> Team
-          </TabsTrigger>
-          <TabsTrigger
-            value="integrations"
-            className="flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-md transition-all"
-          >
-            <Plug className="h-5 w-5" /> Integrations
-          </TabsTrigger>
-        </TabsList>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      <main className="container mx-auto px-4 py-6 max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Settings
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            Manage your account and application preferences
+          </p>
+        </div>
 
-        <TabsContent value="profile">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Profile Information
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Update your personal details.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="flex flex-col items-center space-y-4 md:flex-row md:space-y-0 md:space-x-6">
-                <Avatar className="h-24 w-24 ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900">
-                  <AvatarImage
-                    src={settings.image || undefined}
-                    alt={settings.name}
-                  />
-                  <AvatarFallback>
-                    {settings.name?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <AvatarUpload
-                  value={settings.image}
-                  onChange={handleAvatarUpload}
-                />
-              </div>
-              <Separator />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="name"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Full Name
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={settings.name}
-                    onChange={handleInputChange}
-                    placeholder="Your full name"
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="email"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={settings.email}
-                    onChange={handleInputChange}
-                    placeholder="your@email.com"
-                    disabled={!!settings.authProvider}
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                  {settings.authProvider && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Email managed by {settings.authProvider}.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="phoneNumber"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Phone Number
-                  </Label>
-                  <Input
-                    id="phoneNumber"
-                    name="phoneNumber"
-                    type="tel"
-                    value={settings.phoneNumber || ""}
-                    onChange={handleInputChange}
-                    placeholder="+1 234 567 8900"
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="role"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Role
-                  </Label>
-                  <Input
-                    id="role"
-                    name="role"
-                    value={settings.role}
-                    disabled
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="timezone"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Timezone
-                  </Label>
-                  <Select
-                    name="timezone"
-                    value={settings.timezone || "UTC"}
-                    onValueChange={(value) =>
-                      handleSelectChange("timezone", value)
-                    }
-                  >
-                    <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                      <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="GMT">GMT</SelectItem>
-                      <SelectItem value="EST">EST</SelectItem>
-                      <SelectItem value="PST">PST</SelectItem>
-                      {/* Add more timezones as needed */}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 p-6 flex justify-end">
-              <Button
-                onClick={() => handleSave("profile")}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
+        <Tabs defaultValue="profile" className="space-y-6">
+          <TabsList className="grid grid-cols-6 w-full">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="notifications">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Notification Settings
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Manage how you receive notifications.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                <div>
-                  <Label
-                    htmlFor="emailNotifications"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Email Notifications
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Receive notifications via email.
-                  </p>
-                </div>
-                <Switch
-                  id="emailNotifications"
-                  checked={settings.emailNotifications || false}
-                  onCheckedChange={(checked) =>
-                    handleSwitchChange("emailNotifications", checked)
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                <div>
-                  <Label
-                    htmlFor="smsNotifications"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    SMS Notifications
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Receive notifications via SMS (if phone number is provided).
-                  </p>
-                </div>
-                <Switch
-                  id="smsNotifications"
-                  checked={settings.smsNotifications || false}
-                  onCheckedChange={(checked) =>
-                    handleSwitchChange("smsNotifications", checked)
-                  }
-                  disabled={!settings.phoneNumber}
-                />
-              </div>
-              <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                <div>
-                  <Label
-                    htmlFor="pushNotifications"
-                    className="font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Push Notifications
-                  </Label>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Receive push notifications in-app or on your device.
-                  </p>
-                </div>
-                <Switch
-                  id="pushNotifications"
-                  checked={settings.pushNotifications || false}
-                  onCheckedChange={(checked) =>
-                    handleSwitchChange("pushNotifications", checked)
-                  }
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 p-6 flex justify-end">
-              <Button
-                onClick={() => handleSave("notifications")}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Security Settings
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Manage your account security.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-8">
-              {/* Change Password Section */}
-              {!settings.authProvider && (
-                <div className="p-6 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                  <h3 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
-                    Change Password
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPassword">Current Password</Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        value={passwordData.currentPassword}
-                        onChange={(e) =>
-                          setPasswordData({
-                            ...passwordData,
-                            currentPassword: e.target.value,
-                          })
-                        }
-                        className="dark:bg-gray-600 dark:border-gray-500 dark:text-white"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">New Password</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={passwordData.newPassword}
-                        onChange={(e) =>
-                          setPasswordData({
-                            ...passwordData,
-                            newPassword: e.target.value,
-                          })
-                        }
-                        className="dark:bg-gray-600 dark:border-gray-500 dark:text-white"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">
-                        Confirm New Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={passwordData.confirmPassword}
-                        onChange={(e) =>
-                          setPasswordData({
-                            ...passwordData,
-                            confirmPassword: e.target.value,
-                          })
-                        }
-                        className="dark:bg-gray-600 dark:border-gray-500 dark:text-white"
-                      />
-                    </div>
-                    {passwordError && (
-                      <p className="text-sm text-red-500">{passwordError}</p>
-                    )}
-                    <Button
-                      onClick={handlePasswordChange}
-                      disabled={isChangingPassword}
-                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isChangingPassword ? "Changing..." : "Change Password"}
+          <TabsContent value="profile">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Profile Information
+                    </CardTitle>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/profile" className="flex items-center gap-2">
+                        View Full Profile
+                        <ExternalLink className="w-4 h-4" />
+                      </Link>
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {/* 2FA Section */}
-              <div className="p-6 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label
-                      htmlFor="twoFactorEnabled"
-                      className="font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      Two-Factor Authentication (2FA)
-                    </Label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Add an extra layer of security to your account.
-                    </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        value={profile.name}
+                        onChange={(e) =>
+                          setProfile({ ...profile, name: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={profile.email}
+                        onChange={(e) =>
+                          setProfile({ ...profile, email: e.target.value })
+                        }
+                      />
+                    </div>
                   </div>
-                  <Switch
-                    id="twoFactorEnabled"
-                    checked={settings.twoFactorEnabled || false}
-                    onCheckedChange={handleToggle2FA}
-                    disabled={isUpdating}
-                  />
-                </div>
-              </div>
 
-              {/* Active Sessions Section */}
-              <div className="p-6 bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600">
-                <h3 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
-                  Active Sessions
-                </h3>
-                {settings.sessions && settings.sessions.length > 0 ? (
-                  <ul className="space-y-3">
-                    {settings.sessions.map((session) => (
-                      <li
-                        key={session.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-600 rounded-md"
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Input
+                      id="role"
+                      value={profile.role}
+                      onChange={(e) =>
+                        setProfile({ ...profile, role: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="timezone">Timezone</Label>
+                      <Select
+                        value={profile.timezone}
+                        onValueChange={(value) =>
+                          setProfile({ ...profile, timezone: value })
+                        }
                       >
-                        <div>
-                          <p className="font-medium text-gray-700 dark:text-gray-300">
-                            {session.device}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Last active: {session.lastActive}
-                          </p>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="America/Los_Angeles">
+                            Pacific Time
+                          </SelectItem>
+                          <SelectItem value="America/New_York">
+                            Eastern Time
+                          </SelectItem>
+                          <SelectItem value="Europe/London">GMT</SelectItem>
+                          <SelectItem value="Asia/Tokyo">JST</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="language">Language</Label>
+                      <Select
+                        value={profile.language}
+                        onValueChange={(value) =>
+                          setProfile({ ...profile, language: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="English">English</SelectItem>
+                          <SelectItem value="Spanish">Spanish</SelectItem>
+                          <SelectItem value="French">French</SelectItem>
+                          <SelectItem value="German">German</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="Tell us about yourself..."
+                      className="min-h-[100px]"
+                    />
+                  </div>
+
+                  <Button onClick={handleProfileSave}>Save Changes</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Picture</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col items-center gap-4">
+                    <Avatar className="w-24 h-24">
+                      <AvatarFallback className="bg-blue-500 text-white text-xl">
+                        {profile.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-2">
+                      <Button variant="outline" size="sm">
+                        Upload Photo
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="w-5 h-5" />
+                  Notification Preferences
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="font-medium">Notification Methods</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Email Notifications</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Receive notifications via email
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.email}
+                        onCheckedChange={(checked) =>
+                          setNotifications({ ...notifications, email: checked })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Push Notifications</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Browser push notifications
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.push}
+                        onCheckedChange={(checked) =>
+                          setNotifications({ ...notifications, push: checked })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Slack Integration</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Send notifications to Slack
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.slack}
+                        onCheckedChange={(checked) =>
+                          setNotifications({ ...notifications, slack: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium">Event Notifications</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Bug Assigned to Me</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          When a bug is assigned to you
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.bugAssigned}
+                        onCheckedChange={(checked) =>
+                          setNotifications({
+                            ...notifications,
+                            bugAssigned: checked,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Bug Resolved</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          When bugs you reported are resolved
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.bugResolved}
+                        onCheckedChange={(checked) =>
+                          setNotifications({
+                            ...notifications,
+                            bugResolved: checked,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Weekly Report</Label>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Weekly summary of bug activity
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notifications.weeklyReport}
+                        onCheckedChange={(checked) =>
+                          setNotifications({
+                            ...notifications,
+                            weeklyReport: checked,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleNotificationsSave}>
+                  Save Preferences
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="security">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Password & Security
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="current-password">Current Password</Label>
+                    <Input id="current-password" type="password" />
+                  </div>
+                  <div>
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input id="new-password" type="password" />
+                  </div>
+                  <div>
+                    <Label htmlFor="confirm-password">
+                      Confirm New Password
+                    </Label>
+                    <Input id="confirm-password" type="password" />
+                  </div>
+                  <Button onClick={handlePasswordUpdate}>
+                    Update Password
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="w-5 h-5" />
+                    API Keys
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div>
+                        <div className="font-medium">Production API Key</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          •••••••••••••••••••••••••••••••••••••••
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRevokeSession(session.id)}
-                          disabled={isUpdating}
-                          className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
-                        >
-                          <LogOut className="h-4 w-4 mr-1" /> Revoke
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          Copy
                         </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No active sessions found.
-                  </p>
-                )}
-              </div>
-            </CardContent>
-            {/* Security tab doesn't need a global save button, actions are per section */}
-          </Card>
-        </TabsContent>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600"
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="outline" onClick={handleGenerateApiKey}>
+                    Generate New API Key
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-        <TabsContent value="appearance">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Appearance Settings
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Customize the look and feel of the application.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="themePreference"
-                  className="font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Theme
-                </Label>
-                <Select
-                  value={settings.themePreference}
-                  onValueChange={(value) =>
-                    handleSelectChange(
-                      "themePreference",
-                      value as "light" | "dark" | "system"
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full md:w-1/2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <SelectValue placeholder="Select theme" />
-                  </SelectTrigger>
-                  <SelectContent className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Choose your preferred theme for the application.
-                </p>
-              </div>
-            </CardContent>
-            <CardFooter className="bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 p-6 flex justify-end">
-              <Button
-                onClick={() => handleSave("appearance")}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
+          <TabsContent value="integrations">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="w-5 h-5" />
+                  Connected Services
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  {
+                    name: "GitHub",
+                    status: "connected",
+                    description: "Link bugs to GitHub issues",
+                  },
+                  {
+                    name: "Slack",
+                    status: "connected",
+                    description: "Send notifications to Slack channels",
+                  },
+                  {
+                    name: "Jira",
+                    status: "disconnected",
+                    description: "Sync with Jira tickets",
+                  },
+                  {
+                    name: "GitLab",
+                    status: "disconnected",
+                    description: "Connect with GitLab merge requests",
+                  },
+                ].map((integration) => (
+                  <div
+                    key={integration.name}
+                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                  >
+                    <div>
+                      <div className="font-medium">{integration.name}</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        {integration.description}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={
+                          integration.status === "connected"
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        {integration.status}
+                      </Badge>
+                      <Button variant="outline" size="sm">
+                        {integration.status === "connected"
+                          ? "Configure"
+                          : "Connect"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="team">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Team Management
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Manage your team members and settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-gray-600 dark:text-gray-300">
-                Team management features are coming soon.
-              </p>
-              {/* Placeholder for team management UI */}
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="team">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Team Members
+                    </CardTitle>
+                    <Button
+                      className="flex items-center gap-2"
+                      onClick={handleInviteMember}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Invite Member
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex gap-4">
+                      <Input
+                        placeholder="Search team members..."
+                        className="flex-1"
+                      />
+                      <Select defaultValue="all">
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Roles</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="developer">Developer</SelectItem>
+                          <SelectItem value="qa">QA Tester</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-        <TabsContent value="integrations">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
-              <CardTitle className="text-xl font-semibold text-gray-700 dark:text-gray-200">
-                Integrations
-              </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
-                Connect with other services.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-gray-600 dark:text-gray-300">
-                Integration features are coming soon.
-              </p>
-              {/* Placeholder for integrations UI */}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Member</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Join Date</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teamMembers.map((member) => (
+                          <TableRow key={member.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-8 h-8">
+                                  <AvatarFallback className="bg-blue-500 text-white text-xs">
+                                    {member.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium flex items-center gap-2">
+                                    {member.name}
+                                    {member.role === "Admin" && (
+                                      <Crown className="w-3 h-3 text-yellow-500" />
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                                    {member.email}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{member.role}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  member.status === "Active"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                              >
+                                {member.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                              {new Date(member.joinDate).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
 
-      {/* Delete Account Section - Placed outside tabs for prominence */}
-      <div className="mt-12">
-        <Card className="border-red-500 dark:border-red-700 shadow-lg rounded-xl overflow-hidden">
-          <CardHeader className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-700">
-            <CardTitle className="text-xl font-semibold text-red-700 dark:text-red-400">
-              Danger Zone
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <p className="text-gray-700 dark:text-gray-300">
-              Deleting your account is a permanent action and cannot be undone.
-              All your data will be removed.
-            </p>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteAccount}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Delete My Account
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Allow team members to invite others</Label>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Team members can send invitations
+                      </p>
+                    </div>
+                    <Switch />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Require admin approval for new members</Label>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        New invitations need admin approval
+                      </p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Enable team activity notifications</Label>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Notify about team member activities
+                      </p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="billing">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Current Plan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg border">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold">Pro Plan</h3>
+                          <Badge className="bg-blue-500 text-white">
+                            Current
+                          </Badge>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          Advanced features for growing teams
+                        </p>
+                        <div className="text-2xl font-bold mt-2">
+                          $29.99
+                          <span className="text-base font-normal">/month</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          Next billing date
+                        </div>
+                        <div className="font-semibold">July 1, 2025</div>
+                        <Button variant="outline" className="mt-2">
+                          Change Plan
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">
+                          500
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          Bug reports / month
+                        </div>
+                        <div className="text-xs text-slate-500">127 used</div>
+                      </div>
+                      <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">
+                          50
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          Team members
+                        </div>
+                        <div className="text-xs text-slate-500">4 active</div>
+                      </div>
+                      <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">
+                          ∞
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          Integrations
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          2 connected
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Method</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-6 bg-blue-600 rounded text-white text-xs flex items-center justify-center font-bold">
+                          VISA
+                        </div>
+                        <div>
+                          <div className="font-medium">•••• •••• •••• 4242</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                            Expires 12/2026
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full">
+                      Add Payment Method
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Billing History</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download All
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[100px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {billingHistory.map((invoice) => (
+                        <TableRow key={invoice.id}>
+                          <TableCell className="text-sm">
+                            {new Date(invoice.date).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{invoice.plan}</div>
+                              <div className="text-sm text-slate-600 dark:text-slate-400">
+                                {invoice.invoice}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {invoice.amount}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="default"
+                              className="flex items-center gap-1 w-fit"
+                            >
+                              <Check className="w-3 h-3" />
+                              {invoice.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center gap-2"
+                            >
+                              <Download className="w-4 h-4" />
+                              PDF
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Alert>
+                <Calendar className="h-4 w-4" />
+                <AlertDescription>
+                  Your subscription will automatically renew on July 1, 2025.
+                  You can cancel anytime from this page.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
-}
+};
+
+export default Settings;

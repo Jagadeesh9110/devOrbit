@@ -13,7 +13,6 @@ export const registerUser = async (req: Request) => {
       throw new Error("All fields are required");
     }
 
-    // Validate role
     const validRoles = [
       "Developer",
       "Tester",
@@ -44,7 +43,7 @@ export const registerUser = async (req: Request) => {
       { expiresIn: "24h" }
     );
 
-    const verificationLink = `${process.env.BASE_URL}/auth/verify-email?token=${verificationToken}`;
+    const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${verificationToken}`;
 
     await sendEmail({
       to: newUser.email,
@@ -71,7 +70,8 @@ export const registerUser = async (req: Request) => {
       message:
         "Registration successful. Please check your email for verification.",
     };
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Register error:", error.message);
     throw error;
   }
 };
@@ -107,6 +107,7 @@ export const loginUser = async (req: Request) => {
       { expiresIn: "7d" }
     );
 
+    console.log("Login: Generated tokens for user:", user._id);
     return {
       success: true,
       message: "Login successful",
@@ -122,7 +123,8 @@ export const loginUser = async (req: Request) => {
         },
       },
     };
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Login error:", error.message);
     throw error;
   }
 };
@@ -145,18 +147,15 @@ export const verifyEmail = async (token: string) => {
       throw new Error("User not found");
     }
 
-    // Update user verification status
     user.isVerified = true;
     user.verificationToken = null;
     user.verificationTokenExpiry = null;
     await user.save();
 
     return { success: true, message: "Email verified successfully" };
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    }
-    throw new Error("Invalid or expired token");
+  } catch (error: any) {
+    console.error("Verify email error:", error.message);
+    throw new Error(error.message || "Invalid or expired token");
   }
 };
 
@@ -178,7 +177,7 @@ export const requestPasswordReset = async (req: Request) => {
     { expiresIn: "1h" }
   );
 
-  const resetLink = `${process.env.BASE_URL}/reset-password?token=${resetToken}`;
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
 
   await sendEmail({
     to: user.email,
@@ -211,7 +210,8 @@ export const resetPassword = async (req: Request) => {
     await user.save();
 
     return { message: "Password reset successful" };
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Reset password error:", error.message);
     throw new Error("Invalid or expired token");
   }
 };
@@ -235,7 +235,8 @@ export const checkAuth = async (req: Request) => {
     }
 
     return { message: "User authenticated", user };
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Check auth error:", error.message);
     throw new Error("Invalid or expired token");
   }
 };

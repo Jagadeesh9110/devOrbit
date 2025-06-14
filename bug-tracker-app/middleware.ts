@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
-  verifyEdgeToken,
-  refreshEdgeToken,
+  verifyToken,
+  refreshAccessToken,
   getTokenFromCookies,
-} from "./lib/edge-auth";
+} from "./lib/auth";
 
 const publicPaths = [
   "/",
@@ -13,15 +13,16 @@ const publicPaths = [
   "/auth/forgot-password",
   "/auth/reset-password",
   "/auth/verify-email",
-  "/auth/callback", // Add client-side callback page
+  "/auth/callback",
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/refresh",
   "/api/auth/verify-email",
-  "/api/auth/google", // Google OAuth initiation
-  "/api/auth/github", // GitHub OAuth initiation
-  "/api/auth/oauth-callback/google", // Google OAuth server-side callback
-  "/api/auth/oauth-callback/github", // GitHub OAuth server-side callback
+  "/api/auth/google",
+  "/api/auth/github",
+  "/api/auth/oauth-callback/google",
+  "/api/auth/oauth-callback/github",
+  "/api/auth/verify",
 ];
 
 const isPublicPath = (pathname: string) =>
@@ -33,63 +34,72 @@ const isPublicPath = (pathname: string) =>
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for public paths
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
   const { accessToken, refreshToken } = getTokenFromCookies(request);
 
-  // No tokens available, redirect to login
+  if (pathname.startsWith("/api")) {
+    if (!accessToken && !refreshToken) {
+      console.log("API: No tokens provided");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      if (accessToken) {
+        const payload = verifyToken(accessToken);
+        if (payload) {
+          return NextResponse.next();
+        }
+      }
+
+      if (refreshToken) {
+        const { success, accessToken: newAccessToken } =
+          await refreshAccessToken(refreshToken);
+        if (success && newAccessToken) {
+          console.log("API: Refreshed access token");
+          const response = NextResponse.next();
+          response.cookies.set({
+            name: "accessToken",
+            value: newAccessToken,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 3600, // 1 hour
+          });
+          return response;
+        }
+      }
+
+      console.log("API: Unauthorized after refresh attempt");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    } catch (error: any) {
+      console.error("API Middleware error:", error.message);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   if (!accessToken && !refreshToken) {
+    console.log("Non-API: No tokens, redirecting to login");
     return redirectToLogin(request);
   }
 
   try {
-    // Try to verify access token first
     if (accessToken) {
-      try {
-        await verifyEdgeToken(accessToken);
-        const response = NextResponse.next();
-        // Ensure the access token is properly set in the response
-        response.cookies.set({
-          name: "accessToken",
-          value: accessToken,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 15 * 60, // 15 minutes
-        });
-        return response;
-      } catch (error) {
-        // Access token invalid, try refresh token
-        if (refreshToken) {
-          const { success, accessToken: newAccessToken } =
-            await refreshEdgeToken(refreshToken);
-          if (success && newAccessToken) {
-            const response = NextResponse.next();
-            response.cookies.set({
-              name: "accessToken",
-              value: newAccessToken,
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              path: "/",
-              maxAge: 15 * 60,
-            });
-            return response;
-          }
-        }
+      const payload = verifyToken(accessToken);
+      if (payload) {
+        return NextResponse.next();
       }
     }
 
-    // Try refresh token if no access token
     if (refreshToken) {
-      const { success, accessToken: newAccessToken } = await refreshEdgeToken(
+      const { success, accessToken: newAccessToken } = await refreshAccessToken(
         refreshToken
       );
       if (success && newAccessToken) {
+        console.log("Non-API: Refreshed access token");
         const response = NextResponse.next();
         response.cookies.set({
           name: "accessToken",
@@ -98,18 +108,17 @@ export async function middleware(request: NextRequest) {
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
           path: "/",
-          maxAge: 15 * 60,
+          maxAge: 3600, // 1 hour
         });
         return response;
       }
     }
 
-    // If we get here, no valid tokens were found
+    console.log("Non-API: Unauthorized after refresh attempt, redirecting");
     return redirectToLogin(request);
-  } catch (error) {
-    console.error("Middleware error:", error);
+  } catch (error: any) {
+    console.error("Middleware error:", error.message);
     const response = redirectToLogin(request);
-    // Clear invalid tokens
     response.cookies.delete("accessToken");
     response.cookies.delete("refreshToken");
     return response;

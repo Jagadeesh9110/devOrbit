@@ -1,150 +1,228 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { BugList } from "@/components/bug/BugList";
+import { KanbanBoard } from "@/components/kanbanBoard";
+import BugDetails from "@/components/BugDetails";
+import { SearchBar } from "@/components/SearchBar";
+import { FilterBar } from "@/components/FilterBar";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { List, Bug, Plus, Filter, BarChart3, Clock } from "lucide-react";
 
-interface Bug {
-  _id: string;
-  title: string;
-  description: string;
-  status: "Open" | "In Progress" | "Resolved" | "Closed";
-  createdBy: {
-    _id: string;
-    name: string;
-  };
-  projectId: {
-    _id: string;
-    name: string;
-  };
-  createdAt: string;
-  updatedAt: string;
+type ViewMode = "list" | "kanban";
+
+interface BugFilters {
+  status: string;
+  priority: string;
+  assignee: string;
 }
 
-export default function BugsPage() {
-  const [bugs, setBugs] = useState<Bug[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+interface BugStats {
+  total: number;
+  open: number;
+  inProgress: number;
+  resolved: number;
+  critical: number;
+  avgResolutionTime: string;
+}
 
-  useEffect(() => {
-    const fetchBugs = async () => {
-      try {
-        const response = await fetch(`/api/bugs?status=${statusFilter}`);
-        const data = await response.json();
-        setBugs(data.bugs);
-      } catch (error) {
-        console.error("Error fetching bugs:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+export default function BugsPage(): JSX.Element {
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [selectedBug, setSelectedBug] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filters, setFilters] = useState<BugFilters>({
+    status: "all",
+    priority: "all",
+    assignee: "all",
+  });
 
-    fetchBugs();
-  }, [statusFilter]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Open":
-        return "bg-yellow-100 text-yellow-800";
-      case "In Progress":
-        return "bg-blue-100 text-blue-800";
-      case "Resolved":
-        return "bg-green-100 text-green-800";
-      case "Closed":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  const handleBugSelect = (bugId: string): void => {
+    setSelectedBug(bugId || null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
-      </div>
-    );
-  }
+  const handleFiltersChange = (newFilters: BugFilters): void => {
+    setFilters(newFilters);
+  };
+
+  const bugStats: BugStats = {
+    total: 234,
+    open: 45,
+    inProgress: 12,
+    resolved: 177,
+    critical: 3,
+    avgResolutionTime: "2.3 days",
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Bugs</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            A list of all bugs in your projects
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <Link
-            href="/dashboard/bugs/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            New Bug
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      <main className="container mx-auto px-4 py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Bug Tracking
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              Monitor, track, and resolve issues efficiently
+            </p>
+          </div>
 
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">
-              All Bugs
-            </h3>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
-            >
-              <option value="all">All Status</option>
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Closed">Closed</option>
-            </select>
+          <Button
+            className="flex items-center gap-2"
+            onClick={() => router.push("/dashboard/bugs/new")}
+          >
+            <Plus className="w-4 h-4" />
+            Report Bug
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {bugStats.total}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Total Bugs
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {bugStats.open}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Open
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {bugStats.inProgress}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                In Progress
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {bugStats.resolved}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Resolved
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {bugStats.critical}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Critical
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <Clock className="w-4 h-4" />
+                {bugStats.avgResolutionTime}
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Avg Resolution
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="mb-6 space-y-4">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search bugs with natural language (e.g., 'Show me critical bugs assigned to John')"
+          />
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <FilterBar
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+            />
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="flex items-center gap-2"
+              >
+                <List className="w-4 h-4" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === "kanban" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("kanban")}
+                className="flex items-center gap-2"
+              >
+                <Bug className="w-4 h-4" />
+                Board
+              </Button>
+              <Button variant="outline" size="sm">
+                <BarChart3 className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="sm">
+                <Filter className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
-        <div className="divide-y divide-gray-200">
-          {bugs.map((bug) => (
-            <Link
-              key={bug._id}
-              href={`/dashboard/bugs/${bug._id}`}
-              className="block hover:bg-gray-50"
-            >
-              <div className="px-4 py-4 sm:px-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary-600 truncate">
-                      {bug.title}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-                      {bug.description}
-                    </p>
-                    <div className="mt-2 flex items-center text-sm text-gray-500">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          bug.status
-                        )}`}
-                      >
-                        {bug.status}
-                      </span>
-                      <span className="ml-2">
-                        Project: {bug.projectId.name}
-                      </span>
-                      <span className="ml-2">
-                        Created by: {bug.createdBy.name}
-                      </span>
-                      <span className="ml-2">
-                        {new Date(bug.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
+
+        <div
+          className={`grid gap-6 ${
+            selectedBug ? "grid-cols-1 lg:grid-cols-5" : "grid-cols-1"
+          }`}
+        >
+          <div className={selectedBug ? "lg:col-span-2" : "col-span-1"}>
+            {viewMode === "list" ? (
+              <BugList
+                searchQuery={searchQuery}
+                filters={filters}
+                onBugSelect={handleBugSelect}
+                selectedBug={selectedBug}
+              />
+            ) : (
+              <KanbanBoard
+                searchQuery={searchQuery}
+                filters={filters}
+                onBugSelect={handleBugSelect}
+                selectedBug={selectedBug}
+              />
+            )}
+          </div>
+
+          {selectedBug && (
+            <div className="lg:col-span-3">
+              <BugDetails
+                bugId={selectedBug}
+                onClose={() => setSelectedBug(null)}
+              />
+            </div>
+          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

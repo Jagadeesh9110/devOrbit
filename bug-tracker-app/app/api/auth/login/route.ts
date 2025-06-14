@@ -8,6 +8,11 @@ export async function POST(request: NextRequest) {
     const result = await loginUser(request);
 
     if (result.success && result.data) {
+      console.log("Login successful, setting cookies:", {
+        userId: result.data.user.id,
+        accessToken: result.data.accessToken.substring(0, 20) + "...",
+      });
+
       const response = NextResponse.json({
         success: true,
         message: result.message,
@@ -21,12 +26,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("Login failed:", result.message);
     return NextResponse.json(
       { success: false, message: result.message },
       { status: 401 }
     );
-  } catch (error) {
-    console.error("Login error:", error);
+  } catch (error: any) {
+    console.error("Login error:", error.message);
     return NextResponse.json(
       { success: false, message: "Authentication failed" },
       { status: 500 }

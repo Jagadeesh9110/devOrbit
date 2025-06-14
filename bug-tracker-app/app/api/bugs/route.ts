@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db/Connect";
-import { Bug } from "@/models/bugModel";
+import Bug from "@/models/bugModel";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, description, projectId } = body;
 
-    const userId = "user_id_from_session"; // Replace with actual user ID
+    const userId = "user_id_from_session";
 
     const bug = await Bug.create({
       title,

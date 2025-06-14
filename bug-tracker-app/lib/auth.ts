@@ -20,7 +20,7 @@ export const generateTokens = ({
   }
 
   const accessToken = jwt.sign({ userId, role }, process.env.JWT_ACCESS_TOKEN, {
-    expiresIn: "15m",
+    expiresIn: "1h",
   });
 
   const refreshToken = jwt.sign(
@@ -35,35 +35,29 @@ export const generateTokens = ({
 export const verifyToken = (
   token: string,
   isRefreshToken = false
-): TokenPayload => {
+): TokenPayload | null => {
   const secret = isRefreshToken
     ? process.env.JWT_REFRESH_TOKEN
     : process.env.JWT_ACCESS_TOKEN;
 
   if (!secret) {
+    console.error(
+      "JWT secret missing for",
+      isRefreshToken ? "refresh" : "access"
+    );
     throw new Error("JWT token secret is not configured");
   }
 
   try {
     const decoded = jwt.verify(token, secret) as TokenPayload;
-
     if (!decoded.userId) {
+      console.error("Invalid token payload, missing userId:", decoded);
       throw new Error("Invalid token payload");
     }
-
-    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
-      throw new Error("Token has expired");
-    }
-
     return decoded;
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new Error("Token has expired");
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error("Invalid token");
-    }
-    throw error;
+    console.error("Token verification error:", error);
+    return null;
   }
 };
 
@@ -82,7 +76,7 @@ export const setAuthCookies = (
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 15 * 60,
+    maxAge: 3600, // 1 hour
   });
 
   response.cookies.set({
@@ -92,7 +86,7 @@ export const setAuthCookies = (
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60,
+    maxAge: 7 * 24 * 60 * 60, // 7 days
   });
 
   return response;
@@ -117,14 +111,20 @@ export const getTokenFromCookies = (
 export const refreshAccessToken = async (refreshToken: string) => {
   try {
     const payload = verifyToken(refreshToken, true);
+    if (!payload) {
+      console.error("Invalid refresh token");
+      return { success: false, error: "Invalid refresh token" };
+    }
+
     const { accessToken } = generateTokens({
       userId: payload.userId,
       role: payload.role,
     });
+    console.log("New access token generated for user:", payload.userId);
     return { success: true, accessToken };
-  } catch (error) {
-    console.error("Token refresh error:", error);
-    return { success: false, error: "Invalid refresh token" };
+  } catch (error: any) {
+    console.error("Token refresh error:", error.message);
+    return { success: false, error: error.message || "Invalid refresh token" };
   }
 };
 
@@ -138,6 +138,7 @@ export async function serverFetchWithAuth(
   let accessToken = cookieStore.get("accessToken")?.value;
 
   if (!accessToken) {
+    console.error("No access token in serverFetchWithAuth");
     return { error: "No access token" };
   }
 
@@ -162,6 +163,7 @@ export async function serverFetchWithAuth(
       accessToken = newCookieStore.get("accessToken")?.value;
 
       if (!accessToken) {
+        console.error("Failed to get new access token after refresh");
         return { error: "Failed to get new access token" };
       }
 
@@ -176,16 +178,19 @@ export async function serverFetchWithAuth(
       res = await fetch(url, retryOptions);
 
       if (!res.ok) {
+        console.error("Request failed after refresh:", res.status);
         return {
           error: `Request failed with status ${res.status} after refresh`,
         };
       }
     } else {
+      console.error("Refresh failed:", refreshRes.status);
       return { error: "refresh_failed" };
     }
   }
 
   if (!res.ok) {
+    console.error("Request failed:", res.status);
     return { error: `Request failed with status ${res.status}` };
   }
 
@@ -198,8 +203,6 @@ export const getClientSideToken = () => {
     return { accessToken: null, refreshToken: null };
   }
 
-  // For httpOnly cookies, we can't directly access them
-  // Instead, we'll make the API call and let the server handle authentication
   return {
     accessToken: null,
     refreshToken: null,
@@ -217,31 +220,28 @@ export const clientSideRefresh = async () => {
     });
 
     if (!res.ok) {
+      console.error("Refresh failed with status:", res.status);
       throw new Error(`Refresh failed with status ${res.status}`);
     }
 
     return { success: true };
-  } catch (error) {
-    console.error("Client-side refresh failed:", error);
+  } catch (error: any) {
+    console.error("Client-side refresh failed:", error.message);
     return { success: false };
   }
 };
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   try {
-    // First attempt
     let res = await fetch(url, {
       ...options,
-      credentials: "include", // Always include credentials for cookie handling
+      credentials: "include",
       headers: {
         ...options.headers,
         "Content-Type": "application/json",
       },
-    }).catch((error) => {
-      throw new Error(`Network error: ${error.message}`);
     });
 
-    // If unauthorized, try to refresh the token
     if (res.status === 401) {
       console.log("Token expired, attempting refresh...");
       const refreshResult = await clientSideRefresh();
@@ -249,7 +249,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
         throw new Error("Authentication token refresh failed");
       }
 
-      // Retry the original request with new token (in httpOnly cookie)
       res = await fetch(url, {
         ...options,
         credentials: "include",
@@ -257,8 +256,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
           ...options.headers,
           "Content-Type": "application/json",
         },
-      }).catch((error) => {
-        throw new Error(`Network error after token refresh: ${error.message}`);
       });
 
       if (!res.ok) {
@@ -282,15 +279,12 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       throw new Error(`Request failed with status ${res.status}`);
     }
 
-    const data = await res.json().catch(() => {
-      throw new Error("Invalid JSON response from server");
-    });
-
+    const data = await res.json();
     return data;
-  } catch (error) {
-    console.error("fetchWithAuth error:", error);
+  } catch (error: any) {
+    console.error("fetchWithAuth error:", error.message);
     return {
-      error: error instanceof Error ? error.message : "Failed to make request",
+      error: error.message || "Failed to make request",
     };
   }
 }

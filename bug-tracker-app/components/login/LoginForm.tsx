@@ -5,7 +5,7 @@ import { Mail, Lock, Github, Eye, EyeOff } from "lucide-react"; // Google icon c
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
 import {
   Card,

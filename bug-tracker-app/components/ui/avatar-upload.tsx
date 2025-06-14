@@ -2,7 +2,7 @@
 
 import { CldUploadWidget } from "next-cloudinary";
 import { CldImage } from "next-cloudinary";
-import Button from "./Button";
+import { Button } from "./Button";
 
 interface AvatarUploadProps {
   value: string;

@@ -1,612 +1,546 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import {
-  Bug,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  User,
-  BarChart2,
-  Activity,
-  ArrowUp,
-  ArrowDown,
-  Filter,
-  Download,
-  Calendar,
-  RefreshCw,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+} from "recharts";
+import {
   TrendingUp,
   TrendingDown,
+  Bug,
+  Clock,
+  Users,
+  CheckCircle,
+  AlertTriangle,
+  Calendar,
 } from "lucide-react";
-import {
-  fetchWithAuth,
-  getClientSideToken,
-  clientSideRefresh,
-} from "@/lib/auth";
-import TimelineFilter from "@/components/dashboard/filters/TimelineFilter";
-import StatsCard from "@/components/dashboard/cards/StatsCard";
-import PerformanceMetrics from "@/components/dashboard/metrics/PerformanceMetrics";
-import TopBugsTable from "@/components/dashboard/tables/TopBugsTable";
-import BugTrendChart from "@/components/dashboard/charts/BugTrendChart";
-import ResolutionRateChart from "@/components/dashboard/charts/ResolutionRateChart";
-import BugsBySeverityChart from "@/components/dashboard/charts/BugsBySeverityChart";
-import TeamPerformanceChart from "@/components/dashboard/charts/TeamPerformanceChart";
-import BugHeatmap from "@/components/dashboard/charts/BugHeatmap";
-import PredictionInsights from "@/components/dashboard/PredictionInsights";
-import WorkloadDistribution from "@/components/dashboard/WorkloadDistribution";
-import Button from "@/components/ui/Button";
 
-interface DashboardStats {
-  totalBugs: number;
-  resolvedBugs: number;
-  criticalBugs: number;
-  avgResolutionTime: string;
-  bugTrends: {
-    dates: string[];
-    newBugs: number[];
-    resolvedBugs: number[];
-  };
-  resolutionRates: {
-    dates: string[];
-    rates: number[];
-  };
-  severityDistribution: {
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-  teamPerformance: {
-    members: string[];
-    avgResolutionTimes: number[];
-    bugsResolved: number[];
-  };
-  topBugs: {
-    id: string;
-    title: string;
-    severity: "Critical" | "High" | "Medium" | "Low";
-    assignee: string;
-    reported: string;
-    status: "Open" | "In Progress" | "In Review" | "Resolved";
-  }[];
-  performanceMetrics: {
-    detectionEfficiency: number;
-    firstResponseTime: number;
-    bugFixRate: number;
-    developerWorkload: number;
-  };
+// Type definitions
+interface BugTrendData {
+  name: string;
+  reported: number;
+  resolved: number;
+  open: number;
 }
 
-export default function AnalyticsDashboard() {
-  const router = useRouter();
-  const [timeRange, setTimeRange] = useState("30d");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dashboardData, setDashboardData] = useState<DashboardStats | null>(
-    null
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+interface PriorityData {
+  name: string;
+  value: number;
+  color: string;
+}
 
-  const loadData = async (showRefreshLoader = false) => {
-    if (showRefreshLoader) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-    setError(null);
+interface ResolutionTimeData {
+  name: string;
+  avgTime: number;
+}
 
-    try {
-      const result = await fetchWithAuth(
-        `/api/dashboard/analytics?timeRange=${timeRange}`
-      );
+interface TeamPerformanceData {
+  name: string;
+  resolved: number;
+  pending: number;
+}
 
-      if ("error" in result) {
-        if (
-          result.error.includes("Token refresh failed") ||
-          result.error.includes("401") ||
-          result.error.includes("Unauthorized") ||
-          result.error.includes("Authentication token not found") ||
-          result.error.includes("Invalid or expired authentication token")
-        ) {
-          console.log("Authentication error:", result.error);
-          router.push("/auth/login");
-          return;
-        }
-        throw new Error(result.error);
-      }
+interface Stat {
+  title: string;
+  value: string;
+  change: string;
+  trend: "up" | "down";
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}
 
-      if (!result || typeof result !== "object") {
-        throw new Error("Invalid response format from server");
-      }
+interface AnalyticsData {
+  totalBugs: string | undefined;
+  avgResolutionTime: string | undefined;
+  criticalIssues: number | undefined;
+  resolved: string | undefined;
+  trendData: BugTrendData[];
+  teamData: TeamPerformanceData[];
+  resolutionData: ResolutionTimeData[];
+}
 
-      setDashboardData(result);
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error);
-      let errorMessage = "Failed to load dashboard data. ";
+type TimeRange = "7d" | "30d" | "90d" | "1y";
 
-      if (error instanceof Error) {
-        if (
-          error.message.includes("fetch") ||
-          error.message.includes("network")
-        ) {
-          errorMessage +=
-            "Please check your internet connection and try again.";
-        } else if (error.message.includes("Invalid response")) {
-          errorMessage +=
-            "Received invalid data from server. Please try again later.";
-        } else {
-          errorMessage += error.message;
-        }
-      } else {
-        errorMessage += "An unexpected error occurred. Please try again later.";
-      }
+const Analytics: React.FC = () => {
+  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+  const bugTrendData: BugTrendData[] = [
+    { name: "Week 1", reported: 24, resolved: 18, open: 6 },
+    { name: "Week 2", reported: 31, resolved: 25, open: 12 },
+    { name: "Week 3", reported: 18, resolved: 22, open: 8 },
+    { name: "Week 4", reported: 29, resolved: 27, open: 10 },
+  ];
 
-  useEffect(() => {
-    loadData();
-  }, [timeRange]);
+  const priorityData: PriorityData[] = [
+    { name: "Critical", value: 8, color: "#EF4444" },
+    { name: "High", value: 23, color: "#F97316" },
+    { name: "Medium", value: 45, color: "#EAB308" },
+    { name: "Low", value: 32, color: "#22C55E" },
+  ];
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isLoading && !isRefreshing) {
-        loadData(true);
-      }
-    }, 5 * 60 * 1000);
+  const resolutionTimeData: ResolutionTimeData[] = [
+    { name: "Jan", avgTime: 2.1 },
+    { name: "Feb", avgTime: 1.8 },
+    { name: "Mar", avgTime: 2.3 },
+    { name: "Apr", avgTime: 1.9 },
+    { name: "May", avgTime: 2.2 },
+    { name: "Jun", avgTime: 1.7 },
+  ];
 
-    return () => clearInterval(interval);
-  }, [isLoading, isRefreshing, timeRange]);
+  const teamPerformanceData: TeamPerformanceData[] = [
+    { name: "John Doe", resolved: 89, pending: 12 },
+    { name: "Jane Smith", resolved: 156, pending: 8 },
+    { name: "Alice Johnson", resolved: 67, pending: 15 },
+    { name: "Bob Wilson", resolved: 34, pending: 5 },
+  ];
 
-  const handleRefresh = () => {
-    loadData(true);
-  };
-
-  const handleExport = () => {
-    if (!dashboardData) return;
-
-    const dataToExport = {
-      exportDate: new Date().toISOString(),
-      timeRange,
-      ...dashboardData,
-    };
-
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
-      type: "application/json",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bug-analytics-${timeRange}-${
-      new Date().toISOString().split("T")[0]
-    }.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 max-w-md mx-4">
-          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-500 mb-2">
-            Error Loading Dashboard
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">{error}</p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => loadData()}
-              disabled={isLoading}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-            >
-              {isLoading ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Retry
-            </button>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading || !dashboardData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            Loading Analytics Dashboard
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400">
-            Fetching your bug analytics data...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate trends for stats (you could enhance this with historical data)
-  const calculateTrend = (
-    current: number,
-    type: "bugs" | "resolved" | "critical" | "time"
-  ) => {
-    // Mock trend calculation - in a real app, you'd compare with previous period
-    switch (type) {
-      case "bugs":
-        return current > 10 ? 15 : -5; // More bugs = negative trend
-      case "resolved":
-        return current > 5 ? 12 : 5; // More resolved = positive trend
-      case "critical":
-        return current > 3 ? -8 : 3; // More critical = negative trend
-      case "time":
-        return -2.5;
-      default:
-        return 0;
-    }
-  };
-
-  // Stats data with calculated trends
-  const stats = [
+  const stats: Stat[] = [
     {
       title: "Total Bugs",
-      value: dashboardData?.totalBugs ?? 0,
-      change: calculateTrend(dashboardData?.totalBugs ?? 0, "bugs"),
-      isPositive: (dashboardData?.totalBugs ?? 0) <= 10,
-      icon: <Bug className="h-6 w-6 text-red-500" />,
-    },
-    {
-      title: "Resolved",
-      value: dashboardData?.resolvedBugs ?? 0,
-      change: calculateTrend(dashboardData?.resolvedBugs ?? 0, "resolved"),
-      isPositive: true,
-      icon: <CheckCircle className="h-6 w-6 text-green-500" />,
-    },
-    {
-      title: "Critical Issues",
-      value: dashboardData?.criticalBugs ?? 0,
-      change: calculateTrend(dashboardData?.criticalBugs ?? 0, "critical"),
-      isPositive: (dashboardData?.criticalBugs ?? 0) <= 3,
-      icon: <AlertTriangle className="h-6 w-6 text-orange-500" />,
+      value: "1,234",
+      change: "+12%",
+      trend: "up",
+      icon: Bug,
+      color: "text-blue-600",
     },
     {
       title: "Avg Resolution Time",
-      value: dashboardData?.avgResolutionTime ?? "N/A",
-      change: calculateTrend(0, "time"),
-      isPositive: true,
-      icon: <Clock className="h-6 w-6 text-blue-500" />,
+      value: "1.8 days",
+      change: "-15%",
+      trend: "down",
+      icon: Clock,
+      color: "text-green-600",
+    },
+    {
+      title: "Active Bugs",
+      value: "89",
+      change: "+5%",
+      trend: "up",
+      icon: AlertTriangle,
+      color: "text-orange-600",
+    },
+    {
+      title: "Resolved This Month",
+      value: "456",
+      change: "+23%",
+      trend: "up",
+      icon: CheckCircle,
+      color: "text-emerald-600",
     },
   ];
 
+  const handleExport = async (): Promise<void> => {
+    setIsExporting(true);
+    console.log("Generating AI-powered analytics export...");
+
+    try {
+      // Dynamic import for Next.js
+      const { aiService } = await import("@/lib/services/AiService");
+
+      const analyticsData: AnalyticsData = {
+        totalBugs: stats.find((s) => s.title === "Total Bugs")?.value,
+        avgResolutionTime: stats.find((s) => s.title === "Avg Resolution Time")
+          ?.value,
+        criticalIssues: priorityData.find((p) => p.name === "Critical")?.value,
+        resolved: stats.find((s) => s.title === "Resolved This Month")?.value,
+        trendData: bugTrendData,
+        teamData: teamPerformanceData,
+        resolutionData: resolutionTimeData,
+      };
+
+      const report = await aiService.generateIntelligentReport(
+        analyticsData,
+        timeRange
+      );
+
+      // Create and download the report
+      const blob = new Blob([report], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ai-analytics-report-${
+        new Date().toISOString().split("T")[0]
+      }.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log("AI-powered report exported successfully");
+    } catch (error) {
+      console.error("Error generating AI report:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleTimeRangeChange = (value: string): void => {
+    setTimeRange(value as TimeRange);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
-      {/* Header Section */}
-      <motion.div
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
-            Bug Analytics Dashboard
-          </h1>
-          <p className="text-slate-600 dark:text-slate-300">
-            Comprehensive insights and metrics
-          </p>
-          {lastUpdated && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Last updated: {new Date(lastUpdated).toLocaleString()}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      <main className="container mx-auto px-4 py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Analytics
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400">
+              AI-powered bug metrics and team performance
             </p>
-          )}
-        </div>
-
-        <motion.div
-          className="flex flex-wrap gap-3 mt-4 sm:mt-0"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <TimelineFilter value={timeRange} onChange={setTimeRange} />
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw
-              size={16}
-              className={isRefreshing ? "animate-spin" : ""}
-            />
-            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Filter size={16} />
-            <span>Filters</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            className="flex items-center gap-2"
-          >
-            <Download size={16} />
-            <span>Export</span>
-          </Button>
-        </motion.div>
-      </motion.div>
-
-      {/* Stats Overview */}
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ staggerChildren: 0.1 }}
-      >
-        {stats.map((stat, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <StatsCard
-              title={stat.title}
-              value={stat.value}
-              change={stat.change}
-              isPositive={stat.isPositive}
-              icon={stat.icon}
-              timeRange={timeRange}
-            />
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* AI-Powered Prediction Section */}
-      <motion.div
-        className="mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-      >
-        <PredictionInsights timeRange={timeRange} />
-      </motion.div>
-
-      {/* Charts Row 1 */}
-      <motion.div
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-      >
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Bug Trends
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                New vs Resolved over time
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {(dashboardData?.bugTrends?.newBugs?.reduce((a, b) => a + b, 0) ??
-                0) >
-              (dashboardData?.bugTrends?.resolvedBugs?.reduce(
-                (a, b) => a + b,
-                0
-              ) ?? 0) ? (
-                <TrendingUp className="h-5 w-5 text-red-500" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-green-500" />
-              )}
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                {(
-                  ((dashboardData?.bugTrends?.resolvedBugs?.reduce(
-                    (a, b) => a + b,
-                    0
-                  ) ?? 0) /
-                    (dashboardData?.bugTrends?.newBugs?.reduce(
-                      (a, b) => a + b,
-                      1
-                    ) ?? 1)) *
-                  100
-                ).toFixed(1)}
-                % resolution rate
-              </span>
-            </div>
           </div>
-          <BugTrendChart
-            data={dashboardData?.bugTrends}
-            timeRange={timeRange}
-          />
-        </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Resolution Rate
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Bug resolution efficiency
-              </p>
-            </div>
-            <Activity className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-          </div>
-          <ResolutionRateChart
-            data={dashboardData?.resolutionRates}
-            timeRange={timeRange}
-          />
-        </div>
-      </motion.div>
-
-      {/* Charts Row 2 */}
-      <motion.div
-        className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Bugs by Severity
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Distribution of bug severity
-              </p>
-            </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Total:{" "}
-              {dashboardData?.severityDistribution
-                ? Object.values(dashboardData.severityDistribution).reduce(
-                    (a, b) => a + b,
-                    0
-                  )
-                : 0}
-            </div>
-          </div>
-          <BugsBySeverityChart data={dashboardData?.severityDistribution} />
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Team Performance
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Resolution time by team member
-              </p>
-            </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              {dashboardData?.teamPerformance?.members?.length || 0} members
-            </div>
-          </div>
-          <TeamPerformanceChart
-            data={dashboardData?.teamPerformance}
-            timeRange={timeRange}
-          />
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Workload Distribution
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Current team workload balance
-              </p>
-            </div>
-          </div>
-          <WorkloadDistribution />
-        </div>
-      </motion.div>
-
-      {/* Bug Heatmap */}
-      <motion.div
-        className="mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-      >
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Bug Occurrence Heatmap
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                When and where bugs are occurring
-              </p>
-            </div>
-            <Calendar
-              size={20}
-              className="text-slate-500 dark:text-slate-400"
-            />
-          </div>
-          <BugHeatmap timeRange={timeRange} />
-        </div>
-      </motion.div>
-
-      {/* Performance Metrics */}
-      <motion.div
-        className="mb-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-      >
-        <PerformanceMetrics data={dashboardData?.performanceMetrics} />
-      </motion.div>
-
-      {/* Top Bugs Table */}
-      <motion.div
-        className="bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-lg transition-shadow"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-      >
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-medium text-slate-800 dark:text-white">
-                Top Priority Bugs
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Highest priority issues requiring attention
-              </p>
-            </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              {dashboardData?.topBugs?.length ?? 0} active issues
-            </div>
+          <div className="flex items-center gap-3">
+            <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleExport}
+              disabled={isExporting}
+              variant="outline"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              {isExporting ? "Generating AI Report..." : "Export AI Report"}
+            </Button>
           </div>
         </div>
-        <div className="p-6">
-          <TopBugsTable bugs={dashboardData?.topBugs ?? []} />
-        </div>
-      </motion.div>
 
-      {/* Footer */}
-      <motion.div
-        className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-      >
-        <p>
-          Dashboard automatically refreshes every 5 minutes. Last refresh:{" "}
-          {lastUpdated?.toLocaleString() || "Never"}
-        </p>
-      </motion.div>
+        {/* AI Insights Banner */}
+        <Card className="mb-6 bg-gradient-to-r from-accent-500/10 to-primary-600/10 border-accent-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-accent-500 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                AI Insights
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-slate-700 dark:text-slate-300">
+                  🎯 <strong>Resolution rate improved 18%</strong> - Team
+                  velocity is trending upward
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-700 dark:text-slate-300">
+                  ⚡ <strong>Critical bugs resolved 2.3x faster</strong> -
+                  Process improvements working
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat, index) => (
+            <Card key={index}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      {stat.title}
+                    </p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+                      {stat.value}
+                    </p>
+                    <div className="flex items-center mt-2">
+                      {stat.trend === "up" ? (
+                        <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                      )}
+                      <span
+                        className={`text-sm font-medium ${
+                          stat.trend === "up"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {stat.change}
+                      </span>
+                      <span className="text-sm text-slate-600 dark:text-slate-400 ml-1">
+                        vs last period
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`p-3 rounded-full bg-slate-100 dark:bg-slate-800 ${stat.color}`}
+                  >
+                    <stat.icon className="w-6 h-6" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Tabs defaultValue="trends" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="trends">Bug Trends</TabsTrigger>
+            <TabsTrigger value="priority">Priority Analysis</TabsTrigger>
+            <TabsTrigger value="performance">Team Performance</TabsTrigger>
+            <TabsTrigger value="resolution">Resolution Time</TabsTrigger>
+            <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="trends">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bug Reporting vs Resolution Trends</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart data={bugTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area
+                      type="monotone"
+                      dataKey="reported"
+                      stackId="1"
+                      stroke="#3B82F6"
+                      fill="#3B82F6"
+                      fillOpacity={0.6}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="resolved"
+                      stackId="2"
+                      stroke="#10B981"
+                      fill="#10B981"
+                      fillOpacity={0.6}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="priority">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bug Distribution by Priority</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={priorityData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({
+                          name,
+                          percent,
+                        }: {
+                          name: string;
+                          percent: number;
+                        }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {priorityData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Priority Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {priorityData.map((item) => (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="font-medium">{item.name}</span>
+                      </div>
+                      <Badge variant="outline">{item.value} bugs</Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="performance">
+            <Card>
+              <CardHeader>
+                <CardTitle>Team Performance Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={teamPerformanceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="resolved" fill="#10B981" name="Resolved" />
+                    <Bar dataKey="pending" fill="#F59E0B" name="Pending" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="resolution">
+            <Card>
+              <CardHeader>
+                <CardTitle>Average Resolution Time Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={resolutionTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="avgTime"
+                      stroke="#3B82F6"
+                      strokeWidth={3}
+                      dot={{ fill: "#3B82F6", strokeWidth: 2, r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ai-insights">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-accent-500" />
+                    AI Predictions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
+                      Expected Trend
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Bug resolution rate will increase by 25% next month based
+                      on current velocity
+                    </p>
+                  </div>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                      Resource Optimization
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Redistribute 3 tasks from John to Alice for optimal
+                      workload balance
+                    </p>
+                  </div>
+                  <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                      Risk Alert
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      Mobile platform showing increased bug density - consider
+                      additional testing
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary-600" />
+                    Team Recommendations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-success-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Code Review Impact</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Pair programming reduces bug introduction by 40%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <Clock className="w-4 h-4 text-accent-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Optimal Hours</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        9-11 AM shows highest resolution rates
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Skill Gap</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Frontend team needs React testing expertise
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
-}
+};
+
+export default Analytics;
