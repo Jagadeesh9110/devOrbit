@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Bug } from "@/models/bugModel";
+import Bug from "@/models/bugModel";
 import connectDB from "@/lib/db/Connect";
 import { verifyToken, getTokenFromCookies } from "@/lib/auth";
 import mongoose from "mongoose";

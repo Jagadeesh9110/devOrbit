@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromCookies, verifyToken } from "@/lib/auth";
 import connectDB from "@/lib/db/Connect";
-import { createBug, getAllBugs } from "@/controllers/bugController";
+import { getAllProjects, createProject } from "@/controllers/projectController";
+import User from "@/models/userModel";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,11 +17,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await getAllBugs(payload.userId);
+    const projects = await getAllProjects(payload.userId);
+    return NextResponse.json({ success: true, data: projects });
   } catch (error: any) {
-    console.error("Bugs GET error:", error.message, error.stack);
+    console.error("Projects GET error:", error.message, error.stack);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to fetch bugs" },
+      { success: false, message: error.message || "Failed to fetch projects" },
       { status: error.message.includes("Unauthorized") ? 401 : 500 }
     );
   }
@@ -39,11 +41,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await createBug(request, payload.userId);
-  } catch (error: any) {
-    console.error("Bugs POST error:", error.message, error.stack);
+    const user = await User.findById(payload.userId).select("role");
+    if (!user || !["Admin", "Project Manager"].includes(user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const newProject = await createProject(body, payload.userId);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to create bug" },
+      { success: true, data: newProject },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("Projects POST error:", error.message, error.stack);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to create project" },
       { status: error.message.includes("Forbidden") ? 403 : 400 }
     );
   }

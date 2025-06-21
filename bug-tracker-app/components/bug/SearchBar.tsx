@@ -8,14 +8,14 @@ import { Search, Sparkles, Loader2 } from "lucide-react";
 import { aiService, AISearchResult } from "@/lib/services/AiService";
 
 interface SearchBarProps {
-  value: string;
+  query: string;
   onChange: (value: string) => void;
   placeholder?: string;
   onAISearch?: (results: AISearchResult) => void;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
-  value,
+  query,
   onChange,
   placeholder = "Search with AI...",
   onAISearch,
@@ -25,7 +25,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [searchConfidence, setSearchConfidence] = useState<number | null>(null);
 
   const handleAISearch = async () => {
-    if (!value.trim()) return;
+    if (!query.trim()) return;
 
     setIsAISearching(true);
 
@@ -55,7 +55,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         },
       ];
 
-      const searchResult = await aiService.searchWithAI(value, mockData);
+      const searchResult = await aiService.searchWithAI(query, mockData);
       setSearchConfidence(searchResult.confidence);
       setAISuggestions(searchResult.suggestions.slice(0, 3));
 
@@ -73,11 +73,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   useEffect(() => {
-    if (!value) {
+    if (!query) {
       setSearchConfidence(null);
       setAISuggestions([]);
     }
-  }, [value]);
+  }, [query]);
 
   return (
     <div className="space-y-3">
@@ -88,14 +88,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           <Input
             type="text"
             placeholder={placeholder}
-            value={value}
+            value={query}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAISearch()}
             className="pl-10 pr-20"
           />
           <Button
             onClick={handleAISearch}
-            disabled={isAISearching || !value.trim()}
+            disabled={isAISearching || !query.trim()}
             size="sm"
             className="absolute right-1 h-8 bg-accent-500 hover:bg-accent-600 text-white"
           >

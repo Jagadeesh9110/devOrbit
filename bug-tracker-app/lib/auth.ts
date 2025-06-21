@@ -246,7 +246,11 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       console.log("Token expired, attempting refresh...");
       const refreshResult = await clientSideRefresh();
       if (!refreshResult.success) {
-        throw new Error("Authentication token refresh failed");
+        console.warn("Both tokens are invalid, redirecting to login...");
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        }
+        return { error: "Session expired. Redirecting to login." };
       }
 
       res = await fetch(url, {

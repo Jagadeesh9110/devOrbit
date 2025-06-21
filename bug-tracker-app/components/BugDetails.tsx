@@ -1,22 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Textarea } from "@/components/ui/TextArea";
 import { Avatar, AvatarFallback } from "@/components/ui/Avatar";
 import { Separator } from "@/components/ui/Separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { Textarea } from "@/components/ui/TextArea";
 import {
   Clock,
   User,
@@ -33,252 +23,201 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
+import { PopulatedBug, PopulatedUser, PopulatedComment } from "@/types/bug";
 
 interface BugDetailsProps {
-  bugId: string;
+  // Support both patterns - either pass bug data directly or bugId to fetch
+  bug?: PopulatedBug;
+  bugId?: string;
   onClose?: () => void;
 }
 
-interface MockBug {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  assignee: string;
-  reporter: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-  timeSpent: string;
-  estimatedTime: string;
-  environment: {
-    os: string;
-    browser: string;
-    device: string;
-  };
-  stepsToReproduce: string[];
-  attachments: Array<{
-    name: string;
-    size: string;
-    type: string;
-  }>;
-}
-
-interface Comment {
-  id: number;
-  author: string;
-  content: string;
-  timestamp: string;
-  mentions: string[];
-  reactions: {
-    thumbsUp: number;
-    heart?: number;
-  };
-}
-
-interface Duplicate {
-  id: string;
-  title: string;
-  similarity: number;
-  status: string;
-}
-
-interface Pattern {
-  type: string;
-  description: string;
-}
-
-interface Suggestion {
-  type: string;
-  confidence: number;
-  description: string;
-  code?: string;
-}
-
-interface AIInsights {
-  duplicates: Duplicate[];
-  patterns: Pattern[];
-  suggestions: Suggestion[];
-}
-
-export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
-  const router = useRouter();
+export default function BugDetails({
+  bug: initialBug,
+  bugId,
+  onClose,
+}: BugDetailsProps) {
+  const [bug, setBug] = useState<PopulatedBug | null>(initialBug || null);
+  const [loading, setLoading] = useState(!initialBug && !!bugId);
+  const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState<string>("");
-  const [showAISuggestions, setShowAISuggestions] = useState<boolean>(true);
-  const [isMarkingResolved, setIsMarkingResolved] = useState<boolean>(false);
 
-  const mockBug: MockBug = {
-    id: bugId,
-    title: "Login button not responsive on mobile devices",
-    description:
-      "Users report that the login button becomes unclickable on iOS Safari. The issue appears when the keyboard is shown and the viewport height changes.",
-    status: "in-progress",
-    priority: "high",
-    assignee: "John Doe",
-    reporter: "Jane Smith",
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-16T14:45:00Z",
-    tags: ["iOS", "Safari", "Mobile", "Critical-Path"],
-    timeSpent: "2h 30m",
-    estimatedTime: "4h",
-    environment: {
-      os: "iOS 17.1",
-      browser: "Safari 17",
-      device: "iPhone 15 Pro",
-    },
-    stepsToReproduce: [
-      "Open the app on iOS Safari",
-      "Navigate to login page",
-      "Tap on email input field",
-      "Keyboard appears and viewport shrinks",
-      "Try to tap login button",
-    ],
-    attachments: [
-      { name: "screenshot.png", size: "2.3 MB", type: "image" },
-      { name: "console-log.txt", size: "1.2 KB", type: "text" },
-    ],
+  useEffect(() => {
+    // Only fetch if we don't have initial bug data and we have a bugId
+    if (!initialBug && bugId) {
+      const fetchBug = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const response = await fetch(`/api/bugs/${bugId}`);
+
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch bug: ${response.status} ${response.statusText}`
+            );
+          }
+
+          const bugData = await response.json();
+          setBug(bugData);
+        } catch (err) {
+          console.error("Error fetching bug:", err);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "An error occurred while fetching the bug"
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchBug();
+    }
+  }, [bugId, initialBug]);
+
+  const handleMarkResolved = async () => {
+    if (!bug) return;
+    console.log(`Marking bug ${bug._id} as resolved`);
+    // Add your API call here
   };
 
-  const mockComments: Comment[] = [
-    {
-      id: 1,
-      author: "Jane Smith",
-      content:
-        "I can reproduce this consistently on iPhone 15 Pro. The button seems to be covered by the virtual keyboard overlay.",
-      timestamp: "2024-01-15T11:00:00Z",
-      mentions: ["@john-doe"],
-      reactions: { thumbsUp: 2, heart: 1 },
-    },
-    {
-      id: 2,
-      author: "John Doe",
-      content:
-        "@jane-smith Thanks for the detailed report. I'll investigate the viewport handling for mobile Safari.",
-      timestamp: "2024-01-15T14:30:00Z",
-      mentions: ["@jane-smith"],
-      reactions: { thumbsUp: 1 },
-    },
-  ];
-
-  const aiInsights: AIInsights = {
-    duplicates: [
-      {
-        id: "BUG-123",
-        title: "iOS Safari viewport issues",
-        similarity: 87,
-        status: "resolved",
-      },
-      {
-        id: "BUG-456",
-        title: "Mobile keyboard overlay problems",
-        similarity: 72,
-        status: "open",
-      },
-    ],
-    patterns: [
-      {
-        type: "Frequent Reporter",
-        description:
-          "Jane Smith has reported 8 similar mobile issues this month",
-      },
-      {
-        type: "Component Risk",
-        description: "Login component has 15% higher bug rate than average",
-      },
-      {
-        type: "Device Pattern",
-        description: "iOS Safari issues increased 40% in last 2 weeks",
-      },
-    ],
-    suggestions: [
-      {
-        type: "Fix Suggestion",
-        confidence: 90,
-        description: "Add CSS safe area handling for iOS viewport changes",
-        code: "body { padding-bottom: env(safe-area-inset-bottom); }",
-      },
-      {
-        type: "Priority Prediction",
-        confidence: 88,
-        description:
-          "Based on user impact analysis, suggest priority: Critical",
-      },
-    ],
+  const handlePostComment = async (bugId: string, text: string) => {
+    if (!text.trim()) return;
+    console.log(`Posting comment to bug ${bugId}: ${text}`);
+    setNewComment("");
+    // Add your API call here
   };
 
-  const handleMarkResolved = async (): Promise<void> => {
-    setIsMarkingResolved(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Bug marked as resolved");
-      // In a real app, you might redirect or update state here
-    } catch (error) {
-      console.error("Error marking bug as resolved:", error);
-    } finally {
-      setIsMarkingResolved(false);
+  const getPriorityColor = (priority: string): string => {
+    switch (priority) {
+      case "Critical":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+      case "High":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+      case "Low":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
 
-  const handleClose = (): void => {
-    if (onClose) {
-      onClose();
-    } else {
-      router.back();
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case "Open":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+      case "In Progress":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      case "Resolved":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300";
+      case "Closed":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
 
-  const handlePostComment = (): void => {
-    if (newComment.trim()) {
-      // In a real app, you would make an API call here
-      console.log("Posting comment:", newComment);
-      setNewComment("");
-    }
+  // Helper function to get user initials for avatar
+  const getUserInitials = (name: string): string => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">
+            Loading bug details...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Error Loading Bug
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">{error}</p>
+            <div className="flex gap-2 justify-center">
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+                size="sm"
+              >
+                Retry
+              </Button>
+              {onClose && (
+                <Button onClick={onClose} variant="ghost" size="sm">
+                  Close
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Bug not found state
+  if (!bug) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Card className="p-6 max-w-md">
+          <div className="text-center">
+            <Bug className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              Bug Not Found
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              The bug with ID {bugId} could not be found.
+            </p>
+            {onClose && (
+              <Button onClick={onClose} variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Home</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/bugs">Bugs</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{mockBug.id}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <div className="mb-6">
+        {/* Breadcrumb component can be added here if needed */}
+      </div>
 
-      {/* Header */}
       <Card className="p-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-mono text-slate-500">
-                {mockBug.id}
+                {bug._id.toString()}
               </span>
-              <Badge
-                className={
-                  mockBug.priority === "high"
-                    ? "bg-orange-100 text-orange-800"
-                    : ""
-                }
-              >
-                {mockBug.priority}
+              <Badge className={getPriorityColor(bug.priority)}>
+                {bug.priority}
               </Badge>
-              <Badge className="bg-purple-100 text-purple-800">
-                {mockBug.status.replace("-", " ")}
-              </Badge>
+              <Badge className={getStatusColor(bug.status)}>{bug.status}</Badge>
             </div>
             <h2 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100">
-              {mockBug.title}
+              {bug.title}
             </h2>
           </div>
 
@@ -291,45 +230,36 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
               size="sm"
               className="bg-green-600 hover:bg-green-700"
               onClick={handleMarkResolved}
-              disabled={isMarkingResolved}
             >
-              {isMarkingResolved ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Resolving...
-                </div>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark as Resolved
-                </>
-              )}
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Mark as Resolved
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleClose}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
+            {onClose && (
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-1">
             <User className="w-4 h-4" />
-            <span>Assigned to {mockBug.assignee}</span>
+            <span>Assigned to {bug.assigneeId?.name || "Unassigned"}</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="w-4 h-4" />
             <span>
-              {mockBug.timeSpent} / {mockBug.estimatedTime}
+              {bug.comments.reduce((sum, c) => sum + (c.timeSpent || 0), 0)}h
             </span>
           </div>
           <div className="flex items-center gap-1">
             <Bug className="w-4 h-4" />
-            <span>Reported by {mockBug.reporter}</span>
+            <span>Reported by {bug.createdBy.name}</span>
           </div>
         </div>
       </Card>
 
-      {/* AI Insights */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border border-blue-200 dark:border-blue-800">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
@@ -339,153 +269,58 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
                 AI Insights
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAISuggestions(!showAISuggestions)}
-            >
-              {showAISuggestions ? "Hide" : "Show"}
-            </Button>
           </div>
-
-          {showAISuggestions && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Potential Duplicates */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <Bug className="w-4 h-4" />
-                  Potential Duplicates
-                </h4>
-                <div className="space-y-2">
-                  {aiInsights.duplicates.map((dup, index) => (
-                    <Link
-                      key={index}
-                      href={`/bugs/${dup.id}`}
-                      className="block p-2 bg-slate-50 dark:bg-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-mono text-slate-500">
-                            {dup.id}
-                          </p>
-                          <p className="text-sm font-medium truncate">
-                            {dup.title}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {dup.similarity}% match
-                        </Badge>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Patterns */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Patterns Detected
-                </h4>
-                <div className="space-y-3">
-                  {aiInsights.patterns.map((pattern, index) => (
-                    <div key={index} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        {pattern.type === "Frequent Reporter" && (
-                          <Users className="w-3 h-3 text-orange-500" />
-                        )}
-                        {pattern.type === "Component Risk" && (
-                          <AlertTriangle className="w-3 h-3 text-red-500" />
-                        )}
-                        {pattern.type === "Device Pattern" && (
-                          <TrendingUp className="w-3 h-3 text-blue-500" />
-                        )}
-                        <span className="text-xs font-medium">
-                          {pattern.type}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
-                        {pattern.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* AI Suggestions */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
-                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <Bot className="w-4 h-4" />
-                  AI Suggestions
-                </h4>
-                <div className="space-y-3">
-                  {aiInsights.suggestions.map((suggestion, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">
-                          {suggestion.type}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {suggestion.confidence}% confidence
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
-                        {suggestion.description}
-                      </p>
-                      {suggestion.code && (
-                        <pre className="text-xs p-2 bg-slate-100 dark:bg-slate-700 rounded overflow-x-auto">
-                          <code>{suggestion.code}</code>
-                        </pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Description & Details */}
           <Card className="p-6">
             <h3 className="font-semibold mb-3">Description</h3>
             <p className="text-slate-700 dark:text-slate-300 mb-4">
-              {mockBug.description}
+              {bug.description}
             </p>
 
             <h4 className="font-medium mb-2">Environment</h4>
             <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-              <div>OS: {mockBug.environment.os}</div>
-              <div>Browser: {mockBug.environment.browser}</div>
-              <div>Device: {mockBug.environment.device}</div>
+              <div>
+                OS: {bug.environment.includes("iOS") ? "iOS" : bug.environment}
+              </div>
+              <div>Browser: Unknown</div>
+              <div>Device: Unknown</div>
             </div>
 
             <h4 className="font-medium mb-2">Steps to Reproduce</h4>
             <ol className="list-decimal list-inside space-y-1 text-sm text-slate-600 dark:text-slate-400 mb-4">
-              {mockBug.stepsToReproduce.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
+              <li>No steps provided</li>
             </ol>
 
             <h4 className="font-medium mb-2">Attachments</h4>
             <div className="space-y-2">
-              {mockBug.attachments.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded"
-                >
-                  <File className="w-4 h-4" />
-                  <span className="text-sm">{file.name}</span>
-                  <span className="text-xs text-slate-500">({file.size})</span>
-                </div>
-              ))}
+              {bug.attachments.map((attachment, index) => {
+                const fileName =
+                  attachment.url.split("/").pop() || `Attachment ${index + 1}`;
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded"
+                  >
+                    <File className="w-4 h-4" />
+                    <a
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      {fileName}
+                    </a>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex flex-wrap gap-2 mt-4">
-              {mockBug.tags.map((tag) => (
+              {bug.labels.map((tag) => (
                 <Badge key={tag} variant="outline">
                   {tag}
                 </Badge>
@@ -493,40 +328,42 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
             </div>
           </Card>
 
-          {/* Comments */}
           <Card className="p-6">
             <h3 className="font-semibold mb-4">
-              Comments ({mockComments.length})
+              Comments ({bug.comments.length})
             </h3>
 
             <div className="space-y-4 mb-6">
-              {mockComments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
+              {bug.comments.map((comment) => (
+                <div key={comment._id.toString()} className="flex gap-3">
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-green-500">
-                      {comment.author
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                      {getUserInitials(comment.author.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm">
-                        {comment.author}
+                        {comment.author.name}
                       </span>
+                      <Badge variant="outline" className="text-xs">
+                        {comment.author.role}
+                      </Badge>
                       <span className="text-xs text-slate-500">
-                        {new Date(comment.timestamp).toLocaleDateString()}
+                        {new Date(comment.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
-                      {comment.content}
+                      {comment.text}
                     </p>
+                    {comment.timeSpent && (
+                      <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+                        <Clock className="w-3 h-3" />
+                        <span>{comment.timeSpent}h logged</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <span>👍 {comment.reactions.thumbsUp}</span>
-                      {comment.reactions.heart && (
-                        <span>❤️ {comment.reactions.heart}</span>
-                      )}
+                      <span>👍 {comment.reactions.length}</span>
                       <button className="hover:text-blue-600">Reply</button>
                     </div>
                   </div>
@@ -552,7 +389,12 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
                     🎯 Mention
                   </Button>
                 </div>
-                <Button size="sm" onClick={handlePostComment}>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    handlePostComment(bug._id.toString(), newComment)
+                  }
+                >
                   Post Comment
                 </Button>
               </div>
@@ -560,9 +402,7 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Activity Timeline */}
           <Card className="p-4">
             <h4 className="font-medium mb-3">Activity Timeline</h4>
             <div className="space-y-3 text-sm">
@@ -571,42 +411,90 @@ export default function BugDetails({ bugId, onClose }: BugDetailsProps) {
                 <div className="flex-1">
                   <p className="font-medium">Bug reported</p>
                   <p className="text-xs text-slate-500">
-                    by Jane Smith • 2 days ago
+                    by {bug.createdBy.name} •{" "}
+                    {new Date(bug.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5"></div>
                 <div className="flex-1">
-                  <p className="font-medium">Assigned to John Doe</p>
-                  <p className="text-xs text-slate-500">1 day ago</p>
+                  <p className="font-medium">
+                    Assigned to {bug.assigneeId?.name || "Unassigned"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(bug.updatedAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5"></div>
                 <div className="flex-1">
-                  <p className="font-medium">Status changed to In Progress</p>
-                  <p className="text-xs text-slate-500">6 hours ago</p>
+                  <p className="font-medium">Status changed to {bug.status}</p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(bug.updatedAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Related Links */}
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">Assignee Details</h4>
+            {bug.assigneeId ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="bg-blue-500 text-xs">
+                      {getUserInitials(bug.assigneeId.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="font-medium text-sm">
+                    {bug.assigneeId.name}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 space-y-1">
+                  <p>Role: {bug.assigneeId.role}</p>
+                  {bug.assigneeId.department && (
+                    <p>Department: {bug.assigneeId.department}</p>
+                  )}
+                  {bug.assigneeId.jobTitle && (
+                    <p>Title: {bug.assigneeId.jobTitle}</p>
+                  )}
+                  <p>
+                    Status:{" "}
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                        bug.assigneeId.status === "online"
+                          ? "bg-green-500"
+                          : bug.assigneeId.status === "away"
+                          ? "bg-yellow-500"
+                          : "bg-gray-500"
+                      }`}
+                    ></span>
+                    {bug.assigneeId.status}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No assignee</p>
+            )}
+          </Card>
+
           <Card className="p-4">
             <h4 className="font-medium mb-3">Related Links</h4>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Gitlab className="w-4 h-4" />
-                <Link href="#" className="text-blue-600 hover:underline">
+                <a href="#" className="text-blue-600 hover:underline">
                   GitLab Issue #1234
-                </Link>
+                </a>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Bug className="w-4 h-4" />
-                <Link href="#" className="text-blue-600 hover:underline">
+                <a href="#" className="text-blue-600 hover:underline">
                   Slack Thread
-                </Link>
+                </a>
               </div>
             </div>
           </Card>

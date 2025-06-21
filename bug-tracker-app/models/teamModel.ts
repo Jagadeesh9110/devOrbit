@@ -12,6 +12,11 @@ export interface ITeam extends Document {
       | "Developer"
       | "QA Engineer";
     joinedAt: Date;
+    workload?: number;
+    assignedBugs?: number;
+    resolvedBugs?: number;
+    avgResolutionTime?: string;
+    specialties?: string[];
   }>;
   projects: mongoose.Types.ObjectId[];
   createdAt: Date;
@@ -52,6 +57,30 @@ const teamSchema = new Schema<ITeam>(
           type: Date,
           default: Date.now,
         },
+        workload: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 100,
+        },
+        assignedBugs: {
+          type: Number,
+          default: 0,
+        },
+        resolvedBugs: {
+          type: Number,
+          default: 0,
+        },
+        avgResolutionTime: {
+          type: String,
+          default: "0 days",
+        },
+        specialties: [
+          {
+            type: String,
+            trim: true,
+          },
+        ],
       },
     ],
     projects: [
@@ -83,6 +112,31 @@ teamSchema.virtual("activities").get(function (this: ITeam) {
     projects: this.projects.length,
   };
 });
+
+teamSchema.methods.getPerformanceMetrics = function () {
+  const totalAssigned = this.members.reduce(
+    (sum: number, member: any) => sum + (member.assignedBugs || 0),
+    0
+  );
+  const totalResolved = this.members.reduce(
+    (sum: number, member: any) => sum + (member.resolvedBugs || 0),
+    0
+  );
+  const avgWorkload =
+    this.members.reduce(
+      (sum: number, member: any) => sum + (member.workload || 0),
+      0
+    ) / this.members.length;
+
+  return {
+    totalAssigned,
+    totalResolved,
+    resolutionRate:
+      totalAssigned > 0 ? Math.round((totalResolved / totalAssigned) * 100) : 0,
+    avgWorkload: Math.round(avgWorkload),
+    memberCount: this.members.length,
+  };
+};
 
 const Team = mongoose.models.Team || model<ITeam>("Team", teamSchema);
 

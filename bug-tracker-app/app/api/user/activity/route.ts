@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
   }
   try {
     const payload = verifyToken(token);
+    if (!payload) {
+      throw new Error("Invalid token payload");
+    }
     const userId = new mongoose.Types.ObjectId(payload.userId);
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get("limit") || "5", 10);

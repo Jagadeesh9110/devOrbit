@@ -18,6 +18,18 @@ export interface IUser extends Document {
   authProviderId?: string;
   notificationsEnabled: boolean;
   themePreference: "light" | "dark" | "system";
+
+  // Additional fields for team management
+  phone?: string;
+  location?: string;
+  bio?: string;
+  department?: string;
+  jobTitle?: string;
+  startDate?: Date;
+  salary?: string;
+  skills?: string[];
+  status?: "online" | "away" | "offline";
+
   comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -112,11 +124,57 @@ const userSchema = new Schema<IUser>(
       enum: ["light", "dark", "system"],
       default: "system",
     },
+
+    phone: {
+      type: String,
+      trim: true,
+    },
+    location: {
+      type: String,
+      trim: true,
+    },
+    bio: {
+      type: String,
+      trim: true,
+    },
+    department: {
+      type: String,
+      trim: true,
+    },
+    jobTitle: {
+      type: String,
+      trim: true,
+    },
+    startDate: {
+      type: Date,
+    },
+    salary: {
+      type: String,
+      trim: true,
+    },
+    skills: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    status: {
+      type: String,
+      enum: ["online", "away", "offline"],
+      default: "offline",
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+userSchema.index({ email: 1 });
+userSchema.index({ teamIds: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ department: 1 });
 
 userSchema.pre<IUser>("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
@@ -132,6 +190,40 @@ userSchema.pre<IUser>("save", async function (next) {
 userSchema.methods.comparePassword = async function (enteredPassword: string) {
   if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+userSchema.virtual("fullName").get(function (this: IUser) {
+  return this.name;
+});
+
+userSchema.methods.getTeamPerformance = async function () {
+  const Team = mongoose.model("Team");
+  const teams = await Team.find({ "members.userId": this._id });
+
+  let totalWorkload = 0;
+  let totalAssigned = 0;
+  let totalResolved = 0;
+
+  teams.forEach((team: any) => {
+    const memberData = team.members.find(
+      (member: any) => member.userId.toString() === this._id.toString()
+    );
+    if (memberData) {
+      totalWorkload += memberData.workload || 0;
+      totalAssigned += memberData.assignedBugs || 0;
+      totalResolved += memberData.resolvedBugs || 0;
+    }
+  });
+
+  return {
+    teams: teams.length,
+    avgWorkload:
+      teams.length > 0 ? Math.round(totalWorkload / teams.length) : 0,
+    totalAssigned,
+    totalResolved,
+    resolutionRate:
+      totalAssigned > 0 ? Math.round((totalResolved / totalAssigned) * 100) : 0,
+  };
 };
 
 const User = mongoose.models.User || model<IUser>("User", userSchema);

@@ -14,13 +14,16 @@ export interface TeamMember {
 export interface ProjectInt extends Document {
   name: string;
   description?: string;
-  status: "Active" | "Archived";
+  status: "active" | "planning" | "completed" | "on-hold";
   team: mongoose.Types.ObjectId[];
   teamMembers: TeamMember[];
   managerId: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  priority: "high" | "medium" | "low";
+  dueDate?: Date;
+  tags: string[];
 }
 
 const ProjectSchema: Schema = new Schema<ProjectInt>(
@@ -37,8 +40,8 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
     },
     status: {
       type: String,
-      enum: ["Active", "Archived"],
-      default: "Active",
+      enum: ["active", "planning", "completed", "on-hold"],
+      default: "planning",
       index: true,
     },
     team: [
@@ -84,6 +87,20 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
       immutable: true,
       index: true,
     },
+    priority: {
+      type: String,
+      enum: ["high", "medium", "low"],
+      default: "medium",
+    },
+    dueDate: {
+      type: Date,
+    },
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   {
     timestamps: true,

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromCookies, verifyToken } from "@/lib/auth";
 import connectDB from "@/lib/db/Connect";
-import { getBugById, updateBug, deleteBug } from "@/controllers/bugController";
+import {
+  getProjectById,
+  updateProject,
+  deleteProject,
+} from "@/controllers/projectController";
+import User from "@/models/userModel";
 
 export async function GET(
   request: NextRequest,
@@ -19,11 +24,12 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await getBugById(params.id, payload.userId);
+    const project = await getProjectById(params.id, payload.userId);
+    return NextResponse.json({ success: true, data: project });
   } catch (error: any) {
-    console.error("Bug GET error:", error.message, error.stack);
+    console.error("Project GET error:", error.message, error.stack);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to fetch bug" },
+      { success: false, message: error.message || "Failed to fetch project" },
       {
         status: error.message.includes("Forbidden")
           ? 403
@@ -51,11 +57,13 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await updateBug(request, params.id, payload.userId);
+    const body = await request.json();
+    const updatedProject = await updateProject(params.id, body, payload.userId);
+    return NextResponse.json({ success: true, data: updatedProject });
   } catch (error: any) {
-    console.error("Bug PUT error:", error.message, error.stack);
+    console.error("Project PUT error:", error.message, error.stack);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to update bug" },
+      { success: false, message: error.message || "Failed to update project" },
       {
         status: error.message.includes("Forbidden")
           ? 403
@@ -83,11 +91,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return await deleteBug(params.id);
+    const result = await deleteProject(params.id, payload.userId);
+    return NextResponse.json({ success: true, message: result.message });
   } catch (error: any) {
-    console.error("Bug DELETE error:", error.message, error.stack);
+    console.error("Project DELETE error:", error.message, error.stack);
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to delete bug" },
+      { success: false, message: error.message || "Failed to delete project" },
       {
         status: error.message.includes("Forbidden")
           ? 403
