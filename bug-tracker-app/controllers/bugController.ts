@@ -8,6 +8,19 @@ import { aiService } from "@/lib/services/AiService";
 import { NextRequest, NextResponse } from "next/server";
 import { PopulatedBug } from "@/types/bug";
 
+let featureExtractor: any = null;
+
+async function getFeatureExtractor() {
+  if (!featureExtractor) {
+    const { pipeline } = await import("@xenova/transformers");
+    featureExtractor = await pipeline(
+      "feature-extraction",
+      "Xenova/all-MiniLM-L6-v2"
+    );
+  }
+  return featureExtractor;
+}
+
 interface BugInput {
   title: string;
   description: string;
@@ -42,7 +55,6 @@ export const createBug = async (request: NextRequest, userId: string) => {
       attachments: [],
     };
 
-    // Validate project
     const project = await Project.findById(projectId);
     if (!project) {
       return NextResponse.json(
@@ -51,7 +63,6 @@ export const createBug = async (request: NextRequest, userId: string) => {
       );
     }
 
-    // Validate assignee if provided
     if (data.assigneeId) {
       const assignee = await User.findById(data.assigneeId);
       if (!assignee) {
@@ -62,7 +73,7 @@ export const createBug = async (request: NextRequest, userId: string) => {
       }
     }
 
-    // Handle file uploads
+    // Handle attachments
     const files = formData.getAll("attachments") as File[];
     if (files && files.length > 0) {
       for (const file of files) {
@@ -74,7 +85,7 @@ export const createBug = async (request: NextRequest, userId: string) => {
           });
           data.attachments!.push({
             buffer,
-            name: file.name,
+            name: result.secure_url,
             type: file.type.startsWith("image") ? "image" : "other",
           });
         } catch (uploadError) {
@@ -82,6 +93,8 @@ export const createBug = async (request: NextRequest, userId: string) => {
         }
       }
     }
+
+    // Optional AI Tagging/Assignment
     let aiAnalysis = null;
     try {
       aiAnalysis = await aiService.analyzeBug(data);
@@ -99,6 +112,16 @@ export const createBug = async (request: NextRequest, userId: string) => {
       console.error("AI analysis failed:", aiError);
     }
 
+    // Generate embedding vector
+    let embedding: number[] = [];
+    try {
+      const extractor = await getFeatureExtractor();
+      const output = await extractor(data.description);
+      embedding = Array.from(output[0].data as number[]);
+    } catch (embedError) {
+      console.error("Error generating embedding:", embedError);
+    }
+
     const bug = new Bug({
       ...data,
       createdBy: userId,
@@ -109,6 +132,7 @@ export const createBug = async (request: NextRequest, userId: string) => {
         type: att.type,
         uploadedAt: new Date(),
       })),
+      embedding,
     });
 
     await bug.save();
@@ -228,7 +252,6 @@ export const deleteBug = async (bugId: string) => {
       );
     }
 
-    // Clean up Cloudinary attachments
     if (bug.attachments && bug.attachments.length > 0) {
       for (const attachment of bug.attachments) {
         try {

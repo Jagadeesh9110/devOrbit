@@ -2,11 +2,18 @@ import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config();
 
+interface CloudinaryUploadResult {
+  secure_url: string;
+  public_id: string;
+  url: string;
+  [key: string]: any;
+}
+
 export async function uploadImage(
   file: Buffer,
   userId: string,
   options: Record<string, any> = {}
-) {
+): Promise<CloudinaryUploadResult> {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -21,7 +28,7 @@ export async function uploadImage(
       },
       (error, result) => {
         if (error) reject(error);
-        else resolve(result);
+        else resolve(result as CloudinaryUploadResult);
       }
     );
 

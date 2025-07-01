@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // Added useEffect
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/Alert";
 import { Separator } from "@/components/ui/Separator";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Mail, Lock, User, ArrowRight, Github } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Select,
@@ -22,11 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select";
-import { GoogleCredentialResponse } from "../../types/google";
 
 const RegisterForm: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams(); // Added useSearchParams
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -40,13 +39,12 @@ const RegisterForm: React.FC = () => {
     password: "",
     confirmPassword: "",
     role: "",
-    terms: "", // Added terms to errors state
+    terms: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
-  // useEffect to clear submitError when terms are agreed to, if it was the cause
   useEffect(() => {
     if (
       agreeToTerms &&
@@ -130,7 +128,6 @@ const RegisterForm: React.FC = () => {
           email: formData.email,
           password: formData.password,
           role: formData.role,
-          // termsAccepted: agreeToTerms, // Removed as it's not sent to backend, handled by agreeToTerms state
         }),
       });
 
@@ -150,12 +147,10 @@ const RegisterForm: React.FC = () => {
 
   const handleSocialSignup = async (provider: string) => {
     if (!agreeToTerms) {
-      // Changed from formData.termsAccepted to agreeToTerms
       setErrors((prevErrors) => ({
         ...prevErrors,
         terms: "You must accept the terms and conditions to sign up.",
       }));
-      // Also set submitError to provide a more visible error message
       setSubmitError(
         "You must agree to the terms and privacy policy before signing up with a social account."
       );
@@ -186,7 +181,6 @@ const RegisterForm: React.FC = () => {
       setSubmitError(`Signup with ${provider} is not supported yet.`);
       setIsSubmitting(false);
     }
-    // No finally block needed to set isSubmitting to false here, as the page will redirect.
   };
 
   return (
@@ -194,7 +188,7 @@ const RegisterForm: React.FC = () => {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl text-center">Sign up</CardTitle>
         <CardDescription className="text-center">
-          Create your account to start tracking bugs effectively
+          Create your account to start tracking bugs effectively with devOrbit
         </CardDescription>
       </CardHeader>
 
@@ -210,6 +204,7 @@ const RegisterForm: React.FC = () => {
             variant="outline"
             onClick={() => handleSocialSignup("google")}
             disabled={isSubmitting}
+            className="border border-border hover:bg-accent/10"
           >
             <Mail className="h-4 w-4 mr-2" />
             Google
@@ -218,6 +213,7 @@ const RegisterForm: React.FC = () => {
             variant="outline"
             onClick={() => handleSocialSignup("github")}
             disabled={isSubmitting}
+            className="border border-border hover:bg-accent/10"
           >
             <Github className="h-4 w-4 mr-2" />
             GitHub

@@ -19,6 +19,23 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
+  experimental: {
+    // Ensure native packages like `onnxruntime-node` are treated properly
+    serverComponentsExternalPackages: [
+      "onnxruntime-node",
+      "@xenova/transformers",
+    ],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Prevent bundling native .node binaries
+      config.externals.push({
+        "onnxruntime-node": "commonjs onnxruntime-node",
+      });
+    }
+
+    return config;
+  },
 };
 
 module.exports = nextConfig;

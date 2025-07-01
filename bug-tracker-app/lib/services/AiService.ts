@@ -1,3 +1,5 @@
+import { fetchWithAuth } from "@/lib/auth";
+
 export interface AIAnalyticsData {
   insights: string[];
   recommendations: string[];
@@ -38,7 +40,7 @@ export class AIService {
     return AIService.instance;
   }
 
-  // AI-powered analytics export with insights
+  // ========== AI Analytics Report ==========
   async generateIntelligentReport(
     data: any,
     timeRange: string
@@ -48,110 +50,89 @@ export class AIService {
     const insights = this.analyzeMetrics(data);
     const recommendations = this.generateRecommendations(data);
 
-    const report = `
-  # AI-Powered Bug Analytics Report
-  Generated on: ${new Date().toLocaleDateString()}
-  Time Range: ${timeRange}
-  
-  ## Key Insights
-  ${insights.map((insight) => `- ${insight}`).join("\n")}
-  
-  ## AI Recommendations
-  ${recommendations.map((rec) => `- ${rec}`).join("\n")}
-  
-  ## Metrics Summary
-  - Total Bugs: ${data.totalBugs || 234}
-  - Resolution Rate: ${this.calculateResolutionRate(data)}%
-  - Average Resolution Time: ${data.avgResolutionTime || "1.8 days"}
-  - Critical Issues: ${data.criticalIssues || 8}
-  
-  ## Trend Analysis
-  ${this.generateTrendAnalysis(data)}
-  
-  ---
-  *This report was generated using AI-powered analytics*
-      `;
+    return `
+# AI-Powered Bug Analytics Report
+Generated on: ${new Date().toLocaleDateString()}
+Time Range: ${timeRange}
 
-    return report;
+## Key Insights
+${insights.map((i) => `- ${i}`).join("\n")}
+
+## AI Recommendations
+${recommendations.map((r) => `- ${r}`).join("\n")}
+
+## Metrics Summary
+- Total Bugs: ${data.totalBugs || 234}
+- Resolution Rate: ${this.calculateResolutionRate(data)}%
+- Average Resolution Time: ${data.avgResolutionTime || "1.8 days"}
+- Critical Issues: ${data.criticalIssues || 8}
+
+## Trend Analysis
+${this.generateTrendAnalysis(data)}
+
+---
+*This report was generated using AI-powered analytics*
+    `;
   }
 
-  // AI-powered natural language search
-  async searchWithAI(query: string, data: any[]): Promise<AISearchResult> {
+  // ========== AI Semantic Search ==========
+  async searchWithAI(query: string): Promise<AISearchResult> {
     console.log(`AI processing search query: "${query}"`);
 
-    // Simulate AI processing of natural language
-    const normalizedQuery = query.toLowerCase();
-    let results = [...data];
-    let confidence = 0.8;
+    try {
+      const response = await fetchWithAuth("/api/ai/search", {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      });
 
-    // AI keyword extraction and semantic search
-    if (
-      normalizedQuery.includes("critical") ||
-      normalizedQuery.includes("urgent")
-    ) {
-      results = results.filter(
-        (item) => item.priority === "critical" || item.priority === "high"
-      );
-      confidence = 0.95;
+      if (!response.success) throw new Error(response.message);
+
+      return {
+        query,
+        results: response.data,
+        confidence: 0.9,
+        suggestions: this.generateSearchSuggestions(query),
+      };
+    } catch (error: any) {
+      console.error("searchWithAI error:", error.message);
+      return {
+        query,
+        results: [],
+        confidence: 0.5,
+        suggestions: this.generateSearchSuggestions(query),
+      };
     }
-
-    if (
-      normalizedQuery.includes("last week") ||
-      normalizedQuery.includes("recent")
-    ) {
-      const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      results = results.filter((item) => new Date(item.createdAt) > lastWeek);
-      confidence = 0.9;
-    }
-
-    if (
-      normalizedQuery.includes("assigned to") ||
-      normalizedQuery.includes("developer")
-    ) {
-      const nameMatch = normalizedQuery.match(/assigned to (\w+)/);
-      if (nameMatch) {
-        results = results.filter((item) =>
-          item.assignee?.toLowerCase().includes(nameMatch[1])
-        );
-        confidence = 0.95;
-      }
-    }
-
-    const suggestions = this.generateSearchSuggestions(query);
-
-    return {
-      query,
-      results,
-      confidence,
-      suggestions,
-    };
   }
 
-  // AI bug analysis for duplicate detection and classification
+  // ========== AI Bug Analysis ==========
   async analyzeBug(bugData: any): Promise<AIBugAnalysis> {
-    console.log("AI analyzing bug for duplicates and classification...");
+    console.log("Analyzing bug with AI...");
 
-    // Simulate AI analysis
-    const duplicates = this.findPotentialDuplicates(bugData);
-    const severity = this.predictSeverity(bugData);
-    const priority = this.predictPriority(bugData);
-    const assignee = this.suggestAssignee(bugData);
-    const tags = this.generateTags(bugData);
-    const estimatedTime = this.estimateResolutionTime(bugData);
+    try {
+      const response = await fetchWithAuth("/api/ai/analyze", {
+        method: "POST",
+        body: JSON.stringify({ description: bugData.description }),
+      });
 
-    return {
-      duplicates,
-      severity,
-      priority,
-      assignee,
-      tags,
-      estimatedTime,
-    };
+      if (!response.success) throw new Error(response.message);
+
+      return response.data;
+    } catch (error: any) {
+      console.error("analyzeBug error:", error.message);
+      return {
+        duplicates: [],
+        severity: this.predictSeverity(bugData),
+        priority: this.predictPriority(bugData),
+        assignee: this.suggestAssignee(bugData),
+        tags: this.generateTags(bugData),
+        estimatedTime: this.estimateResolutionTime(bugData),
+      };
+    }
   }
 
-  // AI team performance insights
+  // ========== AI Team Insights ==========
   async generateTeamInsights(teamData: any[]): Promise<AITeamInsights> {
-    console.log("AI analyzing team performance...");
+    console.log("Generating team insights with AI...");
 
     return {
       performanceAnalysis: [
@@ -170,44 +151,46 @@ export class AIService {
         "Mobile team requires performance profiling skills",
       ],
       productivityTrends: [
-        "Morning hours (9-11 AM) show highest bug resolution rates",
-        "Tuesday-Thursday are most productive days for critical fixes",
-        "Pair programming sessions reduce bug introduction by 40%",
+        "Morning hours (9–11 AM) show highest bug resolution rates",
+        "Tuesday–Thursday are most productive for critical fixes",
+        "Pair programming reduces bug introduction by 40%",
       ],
     };
   }
 
+  // ========== Helpers for Analytics ==========
   private analyzeMetrics(data: any): string[] {
     return [
       "Bug resolution rate increased by 18% compared to last period",
-      "Critical bugs are being resolved 2.3x faster than last month",
+      "Critical bugs are resolved 2.3x faster than last month",
       "Weekend bug reports decreased by 31%, indicating better code quality",
-      "Mobile platform shows highest bug density, requiring attention",
+      "Mobile platform has highest bug density",
     ];
   }
 
   private generateRecommendations(data: any): string[] {
     return [
-      "Focus testing efforts on mobile platforms to reduce bug density",
-      "Implement automated testing for authentication module (highest bug source)",
-      "Schedule team training on defensive programming practices",
-      "Consider code review requirements for database-related changes",
+      "Focus testing efforts on mobile platforms",
+      "Implement automated tests for authentication module",
+      "Train team on defensive programming",
+      "Add code review requirements for database-related changes",
     ];
+  }
+
+  private generateTrendAnalysis(data: any): string {
+    return `
+- Bug discovery rate stabilizing at ~25 bugs/week
+- Resolution time trending downward (good)
+- Critical bugs decreasing month-over-month
+- Team productivity is improving
+    `;
   }
 
   private calculateResolutionRate(data: any): number {
     return Math.round(((data.resolved || 177) / (data.total || 234)) * 100);
   }
 
-  private generateTrendAnalysis(data: any): string {
-    return `
-  - Bug discovery rate is stabilizing at ~25 bugs/week
-  - Resolution time trending downward (good improvement)
-  - Critical bugs decreasing month-over-month
-  - Team productivity metrics show positive trajectory
-      `;
-  }
-
+  // ========== AI Heuristics for Local Use ==========
   private generateSearchSuggestions(query: string): string[] {
     return [
       "Show me bugs assigned to John in the last week",
@@ -217,31 +200,20 @@ export class AIService {
     ];
   }
 
-  private findPotentialDuplicates(bugData: any): any[] {
-    // Simulate AI duplicate detection
-    return [
-      { id: "BUG-123", title: "Login page crash", similarity: 0.87 },
-      { id: "BUG-456", title: "Authentication failure", similarity: 0.72 },
-    ];
-  }
-
   private predictSeverity(bugData: any): string {
-    // AI-based severity prediction
-    const keywords = bugData.description?.toLowerCase() || "";
-    if (keywords.includes("crash") || keywords.includes("error")) return "high";
-    if (keywords.includes("slow") || keywords.includes("ui")) return "medium";
-    return "low";
+    const text = bugData.description?.toLowerCase() || "";
+    if (text.includes("crash") || text.includes("error")) return "High";
+    if (text.includes("slow") || text.includes("ui")) return "Medium";
+    return "Low";
   }
 
   private predictPriority(bugData: any): string {
-    // AI-based priority prediction
-    if (bugData.affectedUsers > 1000) return "critical";
-    if (bugData.affectedUsers > 100) return "high";
-    return "medium";
+    if (bugData.affectedUsers > 1000) return "Critical";
+    if (bugData.affectedUsers > 100) return "High";
+    return "Medium";
   }
 
   private suggestAssignee(bugData: any): string {
-    // AI-based assignee suggestion
     const component = bugData.component?.toLowerCase() || "";
     if (component.includes("frontend")) return "Jane Smith";
     if (component.includes("backend")) return "John Doe";
@@ -250,20 +222,19 @@ export class AIService {
   }
 
   private generateTags(bugData: any): string[] {
-    // AI-based tag generation
-    const tags = [];
-    if (bugData.description?.includes("mobile")) tags.push("mobile");
-    if (bugData.description?.includes("login")) tags.push("authentication");
-    if (bugData.description?.includes("slow")) tags.push("performance");
+    const tags: string[] = [];
+    const desc = bugData.description?.toLowerCase() || "";
+    if (desc.includes("mobile")) tags.push("mobile");
+    if (desc.includes("login")) tags.push("authentication");
+    if (desc.includes("slow")) tags.push("performance");
     return tags;
   }
 
   private estimateResolutionTime(bugData: any): string {
-    // AI-based time estimation
     const severity = this.predictSeverity(bugData);
-    if (severity === "high") return "4-6 hours";
-    if (severity === "medium") return "1-2 days";
-    return "3-5 days";
+    if (severity === "high") return "4–6 hours";
+    if (severity === "medium") return "1–2 days";
+    return "3–5 days";
   }
 }
 

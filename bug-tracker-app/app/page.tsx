@@ -8,52 +8,119 @@ import {
   BarChart2,
   Clock,
   CheckCircle,
+  ArrowRight,
+  Sparkles,
+  Zap,
+  Users,
+  Brain,
+  Rocket,
+  Star,
+  Play,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { useState, useEffect } from "react";
 
 export default function Home() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch("/api/auth/verify", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  const handleGetStarted = () => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    } else {
+      router.push("/auth/register");
+    }
+  };
+
+  const handleLogin = () => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    } else {
+      router.push("/auth/login");
+    }
+  };
+
+  const handleDemo = () => {
+    // For demo, we can either show a demo video or redirect to a demo page
+    // You can implement this based on your requirements
+    console.log("Demo requested");
+  };
+
   const features = [
     {
-      icon: <Bug className="w-7 h-7 text-primary-600" />,
+      icon: <Bug className="w-7 h-7 text-primary" />,
       title: "Issue Tracking",
       description:
         "Track bugs, features, and tasks with detailed descriptions, priorities, and status updates.",
     },
     {
-      icon: <Code className="w-7 h-7 text-accent-500" />,
+      icon: <Code className="w-7 h-7 text-secondary" />,
       title: "Real-time Collaboration",
       description:
         "Work together with your team in real-time on bug resolution.",
     },
     {
-      icon: <GitMerge className="w-7 h-7 text-primary-600" />,
+      icon: <GitMerge className="w-7 h-7 text-primary" />,
       title: "Seamless Integration",
       description:
         "Connect with GitHub, GitLab, and other version control systems.",
     },
     {
-      icon: <Shield className="w-7 h-7 text-success-500" />,
+      icon: <Shield className="w-7 h-7 text-accent" />,
       title: "Secure & Reliable",
       description:
         "Enterprise-grade security with role-based access control and data protection.",
     },
     {
-      icon: <BarChart2 className="w-7 h-7 text-primary-700" />,
+      icon: <BarChart2 className="w-7 h-7 text-primary" />,
       title: "Analytics & Reports",
       description:
         "Get insights into your project health with comprehensive analytics and customizable reports.",
     },
     {
-      icon: <Clock className="w-7 h-7 text-accent-500" />,
+      icon: <Clock className="w-7 h-7 text-secondary" />,
       title: "Time Tracking",
       description:
         "Monitor time spent on issues and track project progress with detailed timelines.",
     },
     {
-      icon: <CheckCircle className="w-7 h-7 text-primary-700" />,
+      icon: <CheckCircle className="w-7 h-7 text-accent" />,
       title: "Workflow Management",
       description:
         "Customize workflows to match your team's process with Kanban boards and automation.",
@@ -61,22 +128,115 @@ export default function Home() {
   ];
 
   const stats = [
-    { label: "Bugs Tracked", value: 12450 },
-    { label: "Teams", value: 320 },
-    { label: "Resolved Issues", value: 11800 },
-    { label: "Active Users", value: 2100 },
+    { label: "Bugs Tracked", value: 12450, icon: CheckCircle },
+    { label: "Teams", value: 320, icon: Users },
+    { label: "Resolved Issues", value: 11800, icon: CheckCircle },
+    { label: "Active Users", value: 2100, icon: Users },
+  ];
+  interface WorkflowStep {
+    step: string;
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    image: string;
+  }
+
+  interface WorkflowStepImageProps {
+    step: WorkflowStep;
+  }
+
+  const workflowSteps: WorkflowStep[] = [
+    {
+      step: "01",
+      title: "Intelligent Detection",
+      description:
+        "AI automatically captures, categorizes, and prioritizes bugs from multiple sources.",
+      icon: Brain,
+      image: "/devOrbit-I.jpeg", // Corrected path
+    },
+    {
+      step: "02",
+      title: "Smart Assignment",
+      description:
+        "Machine learning assigns bugs to the most suitable developer based on expertise and workload.",
+      icon: Users,
+      image: "/devOrbit-II.jpeg", // Corrected path
+    },
+    {
+      step: "03",
+      title: "Collaborative Resolution",
+      description:
+        "Real-time collaboration with live code sharing and AI-powered solution recommendations.",
+      icon: Zap,
+      image: "/devOrbit-III.jpeg", // Corrected path
+    },
+  ];
+
+  const WorkflowStepImage: React.FC<WorkflowStepImageProps> = ({ step }) => {
+    const [imageError, setImageError] = useState<boolean>(false);
+
+    return (
+      <motion.div
+        className="flex-1 relative group"
+        whileHover={{ scale: 1.02 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card/40 backdrop-blur-sm">
+          {!imageError ? (
+            <img
+              src={step.image}
+              alt={step.title}
+              className="w-full h-64 object-cover transition-opacity duration-300"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-64 bg-gradient-to-t from-foreground/20 to-transparent flex items-center justify-center">
+              <div className="text-center">
+                <step.icon className="w-16 h-16 text-primary/50 mb-4 mx-auto" />
+                <p className="text-muted-foreground text-sm">
+                  Image not available
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
+  const testimonials = [
+    {
+      quote:
+        "devOrbit reduced our debugging time by 73% and transformed our development velocity.",
+      author: "Alex Chen",
+      role: "Senior Developer at TechFlow",
+      rating: 5,
+    },
+    {
+      quote:
+        "The AI insights helped us prevent 12 critical production issues last month. A game-changer!",
+      author: "Sarah Martinez",
+      role: "Engineering Lead at InnovateLabs",
+      rating: 5,
+    },
+    {
+      quote:
+        "A bug tracker built for 2025. The interface is phenomenal, and AI suggestions are spot-on.",
+      author: "David Kim",
+      role: "CTO at StartupX",
+      rating: 5,
+    },
   ];
 
   const AnimatedCounter = ({ value }: { value: number }) => {
     const [count, setCount] = useState(0);
-    // Changed useState to useEffect for clarity and to avoid potential React warnings
     useEffect(() => {
       let start = 0;
       const end = value;
       if (start === end) return;
-      let incrementTime = 20; // ms
-      // Ensure step is at least 1 to prevent infinite loops for small values
-      let step = Math.max(1, Math.ceil(end / (1000 / incrementTime))); // Aim for ~1 second animation
+      let incrementTime = 20;
+      let step = Math.max(1, Math.ceil(end / (1000 / incrementTime)));
       const timer = setInterval(() => {
         start += step;
         if (start > end) start = end;
@@ -84,133 +244,237 @@ export default function Home() {
         if (start === end) clearInterval(timer);
       }, incrementTime);
       return () => clearInterval(timer);
-    }, [value]); // Added value to dependency array
-    return <span aria-live="polite">{count.toLocaleString()}</span>; // Added aria-live for accessibility
+    }, [value]);
+    return <span aria-live="polite">{count.toLocaleString()}</span>;
   };
 
-  // State for parallax effect (optional, can be expanded)
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const { scrollY } = useScroll();
+  const y1 = useTransform(scrollY, [0, 300], [0, 100]);
+  const y2 = useTransform(scrollY, [0, 300], [0, -100]);
+  const opacity = useTransform(scrollY, [0, 200], [1, 0]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 via-accent-500 to-white dark:from-primary-700 dark:via-accent-600 dark:to-slate-700 transition-colors duration-500 overflow-x-hidden">
-      {/* Hero Section */}
-      <section className="py-20 md:py-28">
+    <div className="min-h-screen bg-background text-foreground overflow-hidden relative">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
         <motion.div
-          className="container mx-auto px-4 text-center"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        >
-          <div className="flex justify-center mb-6">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.6, ease: "backOut" }}
-              className="bg-white/90 dark:bg-slate-800/90 rounded-full p-4 shadow-lg backdrop-blur-sm"
-            >
-              <Bug
-                size={52}
-                className="text-primary-600 dark:text-primary-500"
-              />
-            </motion.div>
-          </div>
-          <motion.h1
-            className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 text-slate-800 dark:text-white drop-shadow-lg"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.7, ease: "easeOut" }}
-          >
-            Streamline Your Bug Tracking
-          </motion.h1>
-          <motion.p
-            className="text-lg sm:text-xl max-w-2xl mx-auto mb-8 text-slate-600 dark:text-slate-200"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.7, ease: "easeOut" }}
-          >
-            The most efficient way to track, manage, and resolve bugs in your
-            development workflow.
-          </motion.p>
-          <motion.div
-            className="flex flex-col sm:flex-row justify-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.7, ease: "easeOut" }}
-          >
-            <Link href="/auth/login" passHref>
-              <Button
-                variant="primary"
-                size="lg"
-                className="shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-              >
-                Get Started
-              </Button>
-            </Link>
-            <Link href="/auth/register" passHref>
-              <Button
-                variant="accent"
-                size="lg"
-                className="shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-              >
-                Try for Free
-              </Button>
-            </Link>
-          </motion.div>
-        </motion.div>
-      </section>
+          className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-primary to-secondary rounded-full blur-3xl"
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.div
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-r from-secondary to-primary rounded-full blur-3xl"
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 100, 0],
+            scale: [1.2, 1, 1.2],
+            rotate: [360, 180, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
 
-      {/* Stats Bar */}
-      <section className="py-8 md:py-12">
-        <motion.div
-          className="container mx-auto px-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 bg-white/90 dark:bg-slate-800/90 rounded-xl shadow-lg backdrop-blur-md p-6 md:p-8"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          {stats.map((stat, i) => (
+      {/* Floating Geometric Shapes */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-4 h-4 bg-secondary rounded-full opacity-20"
+            style={{ left: `${15 + i * 12}%`, top: `${8 + i * 10}%` }}
+            animate={{
+              y: [-20, 20, -20],
+              x: [-10, 10, -10],
+              scale: [0.5, 1, 0.5],
+              opacity: [0.1, 0.3, 0.1],
+            }}
+            transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.5 }}
+          />
+        ))}
+      </div>
+
+      {/* Hero Section */}
+      <section className="pt-24 pb-20 px-6 relative">
+        <div className="container mx-auto text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="inline-flex items-center gap-2 bg-secondary/10 border border-border rounded-full px-6 py-3 mb-8 backdrop-blur-sm"
+          >
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm text-foreground">
+              AI-Powered Bug Intelligence
+            </span>
+            <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground border-0 font-medium">
+              Beta
+            </Badge>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.2 }}
+            className="relative mb-8"
+          >
             <motion.div
-              key={stat.label}
-              className="flex flex-col items-center py-4 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors duration-200"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1, duration: 0.5, ease: "easeOut" }}
+              className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-full blur-3xl opacity-20 scale-150"
+              animate={{ scale: [1.5, 1.7, 1.5], opacity: [0.2, 0.3, 0.2] }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
+            <div className="relative w-24 h-24 mx-auto bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center mb-8">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              >
+                <Bug className="w-12 h-12 text-primary-foreground" />
+              </motion.div>
+            </div>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="text-6xl md:text-8xl font-bold mb-6 leading-tight"
+          >
+            <span className="bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+              devOrbit
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              AI Bug Intelligence
+            </span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-xl text-muted-foreground max-w-3xl mx-auto mb-12 leading-relaxed"
+          >
+            Experience the future of bug tracking with AI-powered insights,
+            predictive analytics, and seamless team collaboration that adapts to
+            your development workflow.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
+          >
+            <motion.div
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative group"
             >
-              <span className="text-2xl md:text-3xl font-bold text-primary-700 dark:text-accent-500">
-                <AnimatedCounter value={stat.value} />
-              </span>
-              <span className="text-slate-600 dark:text-slate-300 text-sm mt-1 text-center">
-                {stat.label}
-              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-25 group-hover:opacity-40 transition-opacity"></div>
+              <Button
+                size="lg"
+                onClick={handleGetStarted}
+                disabled={isLoading}
+                className="relative bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-primary-foreground border-0 px-8 py-6 text-lg shadow-2xl font-medium disabled:opacity-50"
+              >
+                {isLoading ? (
+                  "Loading..."
+                ) : isAuthenticated ? (
+                  <>
+                    Go to Dashboard
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                ) : (
+                  <>
+                    Start Free Trial
+                    <UserPlus className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
             </motion.div>
-          ))}
-        </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={isAuthenticated ? handleGetStarted : handleLogin}
+                disabled={isLoading}
+                className="border-accent text-foreground hover:bg-accent/10 px-8 py-6 text-lg backdrop-blur-sm disabled:opacity-50"
+              >
+                {isAuthenticated ? (
+                  <>
+                    <ArrowRight className="w-5 h-5 mr-2" />
+                    Dashboard
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-5 h-5 mr-2" />
+                    Sign In
+                  </>
+                )}
+              </Button>
+            </motion.div>
+          </motion.div>
+
+          {/* Stats Bar */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 1, delay: 0.6 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto"
+          >
+            {stats.map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.5, ease: "easeOut" }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="relative group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl blur group-hover:blur-lg transition-all duration-300"></div>
+                <Card className="relative bg-card/60 backdrop-blur-sm rounded-xl p-6 border border-border hover:border-primary transition-all duration-300 shadow-lg">
+                  <CardContent className="p-0 text-center">
+                    <stat.icon className="w-6 h-6 text-primary mb-2 mx-auto" />
+                    <div className="text-3xl font-bold text-foreground mb-1">
+                      <AnimatedCounter value={stat.value} />
+                      {stat.value > 1000 ? "K" : "+"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {stat.label}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-16 md:py-24">
+      <section id="features" className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <motion.h2
-            className="text-3xl sm:text-4xl font-bold text-center mb-12 md:mb-16 text-slate-800 dark:text-white"
+            className="text-3xl sm:text-4xl font-bold text-center mb-12 md:mb-16 text-foreground"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            Powerful Features
+            Features
           </motion.h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                className="bg-white dark:bg-slate-900 rounded-xl p-6 sm:p-7 text-center shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border border-transparent hover:border-primary-500 dark:hover:border-accent-500 focus-within:ring-2 focus-within:ring-primary-500 dark:focus-within:ring-accent-400 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-900 outline-none"
+                className="bg-card/60 backdrop-blur-sm rounded-xl p-6 sm:p-7 text-center shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border border-border hover:border-primary focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 outline-none"
                 whileHover={{ y: -8, scale: 1.03 }}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -222,13 +486,11 @@ export default function Home() {
                 }}
                 tabIndex={0}
               >
-                <div className="flex justify-center mb-4 text-primary-600 dark:text-accent-400">
-                  {feature.icon}
-                </div>
-                <h3 className="text-lg font-semibold mb-2 text-slate-800 dark:text-white">
+                <div className="flex justify-center mb-4">{feature.icon}</div>
+                <h3 className="text-lg font-semibold mb-2 text-foreground">
                   {feature.title}
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
+                <p className="text-sm text-muted-foreground">
                   {feature.description}
                 </p>
               </motion.div>
@@ -237,53 +499,235 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-20 md:py-28 bg-gradient-to-r from-primary-600 via-accent-500 to-primary-700 dark:from-primary-700 dark:via-accent-600 dark:to-primary-800 transition-all duration-500">
-        <motion.div
-          className="container mx-auto px-4 text-center"
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white drop-shadow-md mb-4">
-            Ready to streamline your bug tracking?
-          </h2>
-          <p className="text-lg md:text-xl text-blue-100 dark:text-slate-200 max-w-2xl mx-auto mb-8">
-            Join thousands of teams already using BugTracker Pro to ship better
-            software faster.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/register" passHref>
-              <Button
-                variant="accent"
-                size="lg"
-                className="text-lg px-8 py-3 sm:py-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2 focus:ring-offset-primary-700 dark:focus:ring-offset-primary-800"
+      <section
+        id="how-it-works"
+        className="py-20 px-6 relative bg-gradient-to-r from-primary/5 to-secondary/5"
+      >
+        <div className="container mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-4">
+              How devOrbit
+              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {" "}
+                Works
+              </span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Experience intelligent bug tracking that revolutionizes your
+              development workflow.
+            </p>
+          </motion.div>
+
+          <div className="space-y-32">
+            {workflowSteps.map((step, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: i % 2 === 0 ? -100 : 100 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className={`flex flex-col ${
+                  i % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
+                } items-center gap-12`}
               >
-                Start Free Trial
-              </Button>
-            </Link>
-            <Link href="/contact" passHref>
-              <Button
-                variant="primary"
-                size="lg"
-                className="text-lg px-8 py-3 sm:py-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                <div className="flex-1 space-y-6">
+                  <div className="flex items-center gap-4">
+                    <motion.div
+                      className="w-16 h-16 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center text-primary-foreground font-bold text-xl"
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                    >
+                      {step.step}
+                    </motion.div>
+                    <step.icon className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="text-3xl font-bold text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="text-lg text-muted-foreground leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+                <WorkflowStepImage step={step} />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section
+        id="testimonials"
+        className="py-20 px-6 relative bg-gradient-to-r from-primary/5 to-secondary/5"
+      >
+        <motion.div style={{ y: y2 }} className="container mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-4">
+              Loved by
+              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {" "}
+                Developers
+              </span>
+            </h2>
+            <div className="flex items-center justify-center gap-1 mb-4">
+              {[...Array(5)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: i * 0.1, type: "spring" }}
+                >
+                  <Star className="w-6 h-6 text-primary fill-current" />
+                </motion.div>
+              ))}
+              <span className="text-muted-foreground ml-2 text-lg">
+                4.9/5 from 1,400+ teams
+              </span>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {testimonials.map((testimonial, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: i * 0.2 }}
+                whileHover={{ y: -8, rotateY: 5 }}
+                className="group relative"
               >
-                Contact Sales
-              </Button>
-            </Link>
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl blur group-hover:blur-lg transition-all duration-300"></div>
+                <Card className="relative bg-card/60 border-border hover:border-primary backdrop-blur-sm transition-all duration-300">
+                  <CardContent className="p-8">
+                    <div className="flex items-center gap-1 mb-4">
+                      {[...Array(testimonial.rating)].map((_, j) => (
+                        <Star
+                          key={j}
+                          className="w-4 h-4 text-primary fill-current"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-foreground mb-6 leading-relaxed text-lg">
+                      "{testimonial.quote}"
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                        {testimonial.author
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                      <div>
+                        <div className="text-foreground font-medium text-lg">
+                          {testimonial.author}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {testimonial.role}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
       </section>
 
-      {/* Testimonials Carousel (optional, placeholder) */}
-      {/*
-      <section className="py-12 bg-gradient-to-r from-primary-600 to-accent-500">
-        <div className="container mx-auto px-4">
-          <h3 className="text-2xl font-bold text-center text-white mb-8">What Our Users Say</h3>
-          <TestimonialsCarousel />
+      {/* Get Started Section */}
+      <section className="py-20 px-6 relative">
+        <div className="container mx-auto relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="relative"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-3xl blur-3xl opacity-15"></div>
+            <Card className="relative border-0 bg-gradient-to-r from-primary/5 to-secondary/5 backdrop-blur-sm">
+              <div className="bg-card/40 rounded-3xl p-12 md:p-16 text-center border border-border">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8 }}
+                  className="mb-8"
+                >
+                  <motion.div
+                    animate={{ y: [-10, 10, -10], rotate: [0, 5, -5, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  >
+                    <Rocket className="w-16 h-16 mx-auto text-primary mb-6" />
+                  </motion.div>
+                </motion.div>
+                <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
+                  Ready to Squash
+                  <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    {" "}
+                    Bugs?
+                  </span>
+                </h2>
+                <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8 leading-relaxed">
+                  Join thousands of teams revolutionizing their development
+                  process with AI-powered bug tracking.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <motion.div
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-25 group-hover:opacity-40 transition-opacity"></div>
+                    <Button
+                      size="lg"
+                      onClick={handleGetStarted}
+                      disabled={isLoading}
+                      className="relative bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-primary-foreground border-0 px-8 py-6 text-lg shadow-2xl font-medium disabled:opacity-50"
+                    >
+                      {isAuthenticated
+                        ? "Go to Dashboard"
+                        : "Start Your Free Trial"}
+                      <Zap className="w-5 h-5 ml-2" />
+                    </Button>
+                  </motion.div>
+                  <motion.div
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={handleDemo}
+                      className="border-accent text-foreground hover:bg-accent/10 px-8 py-6 text-lg backdrop-blur-sm"
+                    >
+                      Schedule Demo
+                      <Play className="w-5 h-5 ml-2" />
+                    </Button>
+                  </motion.div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-6">
+                  {isAuthenticated
+                    ? "Welcome back! Access your dashboard anytime."
+                    : "No credit card required • 14-day free trial • Cancel anytime"}
+                </p>
+              </div>
+            </Card>
+          </motion.div>
         </div>
       </section>
-      */}
     </div>
   );
 }

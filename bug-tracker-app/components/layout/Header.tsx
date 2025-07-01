@@ -16,11 +16,15 @@ import {
   Bell,
   User,
 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/Button";
 
 const publicNavLinks = [
   { name: "Home", href: "/" },
   { name: "Features", href: "/#features" },
-  { name: "Docs", href: "https://docs.bugtracker.com", external: true },
+  { name: "How It Works", href: "/#how-it-works" },
+  { name: "Testimonials", href: "/#testimonials" },
+  { name: "Docs", href: "https://docs.devorbit.com", external: true },
 ];
 
 const dashboardNavLinks = [
@@ -39,24 +43,28 @@ const Header: React.FC = () => {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 transition-all">
+    <header className="fixed top-0 w-full z-50 bg-background/90 backdrop-blur-xl border-b border-border transition-all">
       <nav className="container mx-auto px-4 flex items-center justify-between h-16">
         {/* Logo */}
-        <Link
-          href={isDashboard ? "/dashboard" : "/"}
-          className="flex items-center gap-2 font-bold text-primary-700 text-xl"
+        <motion.div
+          className="flex items-center gap-3"
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: "spring", stiffness: 400 }}
         >
-          <Bug className="w-7 h-7 text-primary-600" />
-          <span
-            className={
-              isDashboard
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                : ""
-            }
-          >
-            {isDashboard ? "Dashboard" : "BugTracker"}
+          <div className="relative">
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl blur opacity-40"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+            />
+            <div className="relative w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center">
+              <Bug className="w-6 h-6 text-primary-foreground" />
+            </div>
+          </div>
+          <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+            {isDashboard ? "devOrbit Dashboard" : "devOrbit"}
           </span>
-        </Link>
+        </motion.div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
@@ -68,8 +76,8 @@ const Header: React.FC = () => {
                   <button
                     className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                       isActive(item.href)
-                        ? "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400"
-                        : "text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        ? "text-primary bg-primary/10 dark:bg-primary/20"
+                        : "text-muted-foreground hover:text-primary hover:bg-accent/10"
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
@@ -88,7 +96,7 @@ const Header: React.FC = () => {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium"
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium"
                   >
                     {link.name}
                   </a>
@@ -96,7 +104,7 @@ const Header: React.FC = () => {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium"
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium"
                   >
                     {link.name}
                   </Link>
@@ -116,22 +124,24 @@ const Header: React.FC = () => {
 
               {/* Settings */}
               <Link href="/dashboard/settings">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
                   className={`p-2 rounded-full transition-all duration-200 ${
                     isActive("/dashboard/settings")
-                      ? "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400"
-                      : "text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      ? "text-primary bg-primary/10 dark:bg-primary/20"
+                      : "text-muted-foreground hover:text-primary hover:bg-accent/10"
                   }`}
                 >
                   <Settings className="w-5 h-5" />
-                </button>
+                </motion.button>
               </Link>
 
               {/* User Menu */}
               <Menu as="div" className="relative">
-                <Menu.Button className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <Menu.Button className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary/20 hover:bg-accent/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                   <span className="sr-only">Open user menu</span>
-                  <User className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                  <User className="w-4 h-4 text-muted-foreground" />
                 </Menu.Button>
 
                 <Transition
@@ -143,14 +153,14 @@ const Header: React.FC = () => {
                   leaveFrom="transform opacity-100 scale-100"
                   leaveTo="transform opacity-0 scale-95"
                 >
-                  <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 dark:ring-slate-700 focus:outline-none border border-slate-200 dark:border-slate-700">
+                  <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 bg-card/80 backdrop-blur-md ring-1 ring-border focus:outline-none">
                     <Menu.Item>
                       {({ active }) => (
                         <Link
                           href="/dashboard/profile"
                           className={`${
-                            active ? "bg-slate-50 dark:bg-slate-700" : ""
-                          } block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:text-blue-600 transition-colors duration-200`}
+                            active ? "bg-accent/20" : ""
+                          } block px-4 py-2 text-sm text-foreground hover:text-primary transition-colors duration-200`}
                         >
                           Your Profile
                         </Link>
@@ -161,14 +171,14 @@ const Header: React.FC = () => {
                         <Link
                           href="/dashboard/settings"
                           className={`${
-                            active ? "bg-slate-50 dark:bg-slate-700" : ""
-                          } block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:text-blue-600 transition-colors duration-200`}
+                            active ? "bg-accent/20" : ""
+                          } block px-4 py-2 text-sm text-foreground hover:text-primary transition-colors duration-200`}
                         >
                           Settings
                         </Link>
                       )}
                     </Menu.Item>
-                    <hr className="my-1 border-slate-200 dark:border-slate-700" />
+                    <hr className="my-1 border-border" />
                     <Menu.Item>
                       {({ active }) => (
                         <button
@@ -176,8 +186,8 @@ const Header: React.FC = () => {
                             // TODO: Add logout logic here
                           }}
                           className={`${
-                            active ? "bg-slate-50 dark:bg-slate-700" : ""
-                          } block w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:text-red-600 transition-colors duration-200`}
+                            active ? "bg-accent/20" : ""
+                          } block w-full text-left px-4 py-2 text-sm text-foreground hover:text-red-600 transition-colors duration-200`}
                         >
                           Sign out
                         </button>
@@ -189,24 +199,38 @@ const Header: React.FC = () => {
             </>
           ) : (
             // Public Actions
-            <Link
-              href="/dashboard"
-              className="ml-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-semibold shadow hover:bg-primary-700 transition-all"
-            >
-              Dashboard
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link href="/auth/login">
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-primary hover:bg-accent/10"
+                >
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/auth/register">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button className="bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-primary-foreground shadow-lg font-medium">
+                    Get Started Free
+                  </Button>
+                </motion.div>
+              </Link>
+            </div>
           )}
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-slate-800 transition"
+            className="md:hidden p-2 rounded-lg hover:bg-accent/10 transition"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Toggle menu"
           >
             {menuOpen ? (
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6 text-foreground" />
             ) : (
-              <MenuIcon className="w-6 h-6" />
+              <MenuIcon className="w-6 h-6 text-foreground" />
             )}
           </button>
         </div>
@@ -214,7 +238,7 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 pb-4 pt-2 animate-fade-in-down">
+        <div className="md:hidden bg-card/80 backdrop-blur-md border-t border-border px-4 pb-4 pt-2 animate-fade-in-down">
           <div className="flex flex-col gap-3">
             {isDashboard ? (
               // Dashboard Mobile Menu
@@ -225,8 +249,8 @@ const Header: React.FC = () => {
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                       isActive(item.href)
-                        ? "text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400"
-                        : "text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        ? "text-primary bg-primary/10 dark:bg-primary/20"
+                        : "text-foreground hover:text-primary hover:bg-accent/10"
                     }`}
                     onClick={() => setMenuOpen(false)}
                   >
@@ -234,17 +258,17 @@ const Header: React.FC = () => {
                     {item.name}
                   </Link>
                 ))}
-                <hr className="my-2 border-slate-200 dark:border-slate-700" />
+                <hr className="my-2 border-border" />
                 <Link
                   href="/dashboard/profile"
-                  className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium px-3 py-2"
+                  className="text-foreground hover:text-primary transition-colors font-medium px-3 py-2"
                   onClick={() => setMenuOpen(false)}
                 >
                   Profile
                 </Link>
                 <Link
                   href="/dashboard/settings"
-                  className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium px-3 py-2"
+                  className="text-foreground hover:text-primary transition-colors font-medium px-3 py-2"
                   onClick={() => setMenuOpen(false)}
                 >
                   Settings
@@ -254,7 +278,7 @@ const Header: React.FC = () => {
                     // TODO: Add logout logic here
                     setMenuOpen(false);
                   }}
-                  className="text-left text-slate-700 dark:text-slate-200 hover:text-red-600 transition-colors font-medium px-3 py-2"
+                  className="text-left text-foreground hover:text-red-600 transition-colors font-medium px-3 py-2"
                 >
                   Sign out
                 </button>
@@ -269,7 +293,7 @@ const Header: React.FC = () => {
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium px-3 py-2"
+                      className="text-foreground hover:text-primary transition-colors font-medium px-3 py-2"
                       onClick={() => setMenuOpen(false)}
                     >
                       {link.name}
@@ -278,7 +302,7 @@ const Header: React.FC = () => {
                     <Link
                       key={link.name}
                       href={link.href}
-                      className="text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors font-medium px-3 py-2"
+                      className="text-foreground hover:text-primary transition-colors font-medium px-3 py-2"
                       onClick={() => setMenuOpen(false)}
                     >
                       {link.name}
@@ -287,7 +311,7 @@ const Header: React.FC = () => {
                 )}
                 <Link
                   href="/dashboard"
-                  className="px-4 py-2 rounded-lg bg-primary-600 text-white font-semibold shadow hover:bg-primary-700 transition-all mt-2"
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-secondary text-primary-foreground font-semibold shadow hover:from-secondary hover:to-primary transition-all mt-2"
                   onClick={() => setMenuOpen(false)}
                 >
                   Dashboard

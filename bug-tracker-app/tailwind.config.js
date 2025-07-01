@@ -8,23 +8,57 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        custom: {
+          blue: "#607896",
+        },
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        card: {
+          DEFAULT: "rgb(var(--card) / <alpha-value>)",
+          foreground: "rgb(var(--card-foreground) / <alpha-value>)",
+        },
+        popover: {
+          DEFAULT: "rgb(var(--popover) / <alpha-value>)",
+          foreground: "rgb(var(--popover-foreground) / <alpha-value>)",
+        },
         primary: {
-          600: "#2563eb", // blue-600
-          700: "#1d4ed8", // blue-700
+          DEFAULT: "rgb(var(--primary) / <alpha-value>)",
+          foreground: "rgb(var(--primary-foreground) / <alpha-value>)",
+          600: "#5A8BF0", // Darker shade for gradients
+        },
+        secondary: {
+          DEFAULT: "rgb(var(--secondary) / <alpha-value>)",
+          foreground: "rgb(var(--secondary-foreground) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "rgb(var(--muted) / <alpha-value>)",
+          foreground: "rgb(var(--muted-foreground) / <alpha-value>)",
         },
         accent: {
-          500: "#14b8a6", // teal-500
-          600: "#0d9488", // teal-600
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          foreground: "rgb(var(--accent-foreground) / <alpha-value>)",
+          500: "#5A6570", // Darker shade for gradients
         },
-        success: {
-          500: "#22c55e", // green-500
+        destructive: {
+          DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
+          foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
         },
-        slate: {
-          700: "#334155", // slate-700
-        },
+        border: "rgb(var(--border) / <alpha-value>)",
+        input: "rgb(var(--input) / <alpha-value>)",
+        ring: "rgb(var(--ring) / <alpha-value>)",
+      },
+      backdropBlur: {
+        xs: "2px",
+        sm: "4px",
+        md: "8px",
+        lg: "12px",
+      },
+      backgroundImage: {
+        "gradient-to-r": "linear-gradient(to right, var(--tw-gradient-stops))",
+        "gradient-to-t": "linear-gradient(to top, var(--tw-gradient-stops))",
       },
     },
   },
   darkMode: "class",
-  plugins: [],
+  plugins: [require("@tailwindcss/typography")],
 };

@@ -1,3 +1,58 @@
 ﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 231 235 240; /* #e7ebf0 - Light Surface */
+    --foreground: 31 31 35; /* #1f1f23 - Text Primary */
+    --card: 255 255 255; /* White for cards */
+    --card-foreground: 31 31 35;
+    --popover: 255 255 255;
+    --popover-foreground: 31 31 35;
+    --primary: 108 159 251; /* #6C9FFB - Lovable Blue */
+    --primary-foreground: 255 255 255;
+    --secondary: 178 184 214; /* #B2B8D6 - Lovable Cosmic Blue */
+    --secondary-foreground: 31 31 35;
+    --muted: 231 235 240;
+    --muted-foreground: 78 85 99;
+    --accent: 71 76 97; /* #474C61 - Lovable Dark Gray */
+    --accent-foreground: 255 255 255;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --border: 178 184 214;
+    --input: 231 235 240;
+    --ring: 108 159 251;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 31 31 35;
+    --foreground: 231 235 240;
+    --card: 31 31 35;
+    --card-foreground: 231 235 240;
+    --popover: 31 31 35;
+    --popover-foreground: 231 235 240;
+    --primary: 178 184 214;
+    --primary-foreground: 31 31 35;
+    --secondary: 108 159 251;
+    --secondary-foreground: 255 255 255;
+    --muted: 71 76 97;
+    --muted-foreground: 178 184 214;
+    --accent: 96 120 150;
+    --accent-foreground: 231 235 240;
+    --destructive: 248 113 113;
+    --destructive-foreground: 231 235 240;
+    --border: 71 76 97;
+    --input: 71 76 97;
+    --ring: 178 184 214;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

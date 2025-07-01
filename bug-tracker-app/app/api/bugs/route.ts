@@ -1,7 +1,12 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromCookies, verifyToken } from "@/lib/auth";
 import connectDB from "@/lib/db/Connect";
 import { createBug, getAllBugs } from "@/controllers/bugController";
+import Bug from "@/models/bugModel";
+
+let featureExtractor: any = null;
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,16 +17,24 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(accessToken);
-    if (!payload || !payload.userId) {
+    if (!payload?.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!featureExtractor) {
+      const { pipeline } = await import("@xenova/transformers");
+      featureExtractor = await pipeline(
+        "feature-extraction",
+        "Xenova/all-MiniLM-L6-v2"
+      );
     }
 
     return await getAllBugs(payload.userId);
   } catch (error: any) {
-    console.error("Bugs GET error:", error.message, error.stack);
+    console.error("Bugs GET error:", error.message);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to fetch bugs" },
-      { status: error.message.includes("Unauthorized") ? 401 : 500 }
+      { status: 500 }
     );
   }
 }
@@ -35,16 +48,70 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(accessToken);
-    if (!payload || !payload.userId) {
+    if (!payload?.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const contentType = request.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      const body = await request.json();
+      if (body.description && body.duplicateCheck === true) {
+        if (!featureExtractor) {
+          const { pipeline } = await import("@xenova/transformers");
+          featureExtractor = await pipeline(
+            "feature-extraction",
+            "Xenova/all-MiniLM-L6-v2"
+          );
+        }
+
+        const queryEmbedding = await featureExtractor(body.description);
+        const queryVector: number[] = Array.from(
+          queryEmbedding[0].data as number[]
+        );
+
+        const bugs = await Bug.find({}).select("embedding title description");
+
+        const similarities = bugs.map((bug) => {
+          const bugVector: number[] = bug.embedding || [];
+
+          const dotProduct = queryVector.reduce(
+            (sum: number, val: number, i: number) =>
+              sum + val * (bugVector[i] || 0),
+            0
+          );
+          const magnitudeA = Math.sqrt(
+            queryVector.reduce((sum, val) => sum + val * val, 0)
+          );
+          const magnitudeB =
+            Math.sqrt(bugVector.reduce((sum, val) => sum + val * val, 0)) || 1;
+
+          const similarity = dotProduct / (magnitudeA * magnitudeB);
+
+          return {
+            id: bug._id,
+            title: bug.title,
+            description: bug.description,
+            similarity,
+          };
+        });
+
+        const duplicates = similarities
+          .filter((s) => s.similarity >= 0.8)
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, 5);
+
+        return NextResponse.json({ success: true, data: duplicates });
+      }
+    }
+
+    // Standard bug creation
     return await createBug(request, payload.userId);
   } catch (error: any) {
-    console.error("Bugs POST error:", error.message, error.stack);
+    console.error("Bugs POST error:", error.message);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to create bug" },
-      { status: error.message.includes("Forbidden") ? 403 : 400 }
+      { status: 500 }
     );
   }
 }

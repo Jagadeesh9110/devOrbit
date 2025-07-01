@@ -56,7 +56,13 @@ export const verifyToken = (
     }
     return decoded;
   } catch (error) {
-    console.error("Token verification error:", error);
+    if (error instanceof jwt.JsonWebTokenError) {
+      console.error("JWT Error:", error.message);
+    } else if (error instanceof jwt.TokenExpiredError) {
+      console.error("Token expired:", error.message);
+    } else {
+      console.error("Token verification error:", error);
+    }
     return null;
   }
 };
@@ -69,11 +75,12 @@ export const setAuthCookies = (
   response.cookies.delete("accessToken");
   response.cookies.delete("refreshToken");
 
+  const isProduction = process.env.NODE_ENV === "production";
   response.cookies.set({
     name: "accessToken",
     value: accessToken,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProduction,
     sameSite: "lax",
     path: "/",
     maxAge: 3600, // 1 hour
@@ -83,7 +90,7 @@ export const setAuthCookies = (
     name: "refreshToken",
     value: refreshToken,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProduction,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -147,12 +154,14 @@ export async function serverFetchWithAuth(
     headers: {
       ...options.headers,
       Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     },
   };
 
   let res = await fetch(url, fetchOptions);
 
   if (res.status === 401) {
+    // console.log("Access token expired, attempting refresh...");
     const refreshRes = await fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "include",
@@ -172,6 +181,7 @@ export async function serverFetchWithAuth(
         headers: {
           ...options.headers,
           Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       };
 

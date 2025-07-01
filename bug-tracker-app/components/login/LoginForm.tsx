@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Mail, Lock, Github, Eye, EyeOff } from "lucide-react"; // Google icon can be Mail or a specific Google icon if you add one
+import { Mail, Lock, Github, Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/Input";
@@ -117,8 +117,6 @@ const LoginForm: React.FC = () => {
   const handleSocialLogin = async (provider: string) => {
     setIsSubmitting(true);
     setSubmitError("");
-    // For redirect flow, we simply navigate to the backend API endpoint
-    // The backend will handle the redirect to the OAuth provider
     const currentPath = window.location.pathname + window.location.search;
     const from = searchParams.get("from") || "/dashboard";
     const callbackUrl = `${
@@ -126,12 +124,10 @@ const LoginForm: React.FC = () => {
     }/auth/callback?provider=${provider}&from=${encodeURIComponent(from)}`;
 
     if (provider === "google") {
-      // Redirect to your backend Google auth route
       router.push(
         `/api/auth/google?callbackUrl=${encodeURIComponent(callbackUrl)}`
       );
     } else if (provider === "github") {
-      // Redirect to your backend GitHub auth route
       router.push(
         `/api/auth/github?callbackUrl=${encodeURIComponent(callbackUrl)}`
       );
@@ -140,7 +136,6 @@ const LoginForm: React.FC = () => {
       setSubmitError(`Login with ${provider} is not supported yet.`);
       setIsSubmitting(false);
     }
-    // No finally block needed to set isSubmitting to false here, as the page will redirect.
   };
 
   return (
@@ -149,7 +144,7 @@ const LoginForm: React.FC = () => {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">Sign in</CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access BugTracker
+            Enter your credentials to access devOrbit
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -172,6 +167,7 @@ const LoginForm: React.FC = () => {
               variant="outline"
               onClick={() => handleSocialLogin("google")}
               disabled={isSubmitting}
+              className="border border-border hover:bg-accent/10"
             >
               <Mail className="h-4 w-4 mr-2" /> Google
             </Button>
@@ -179,6 +175,7 @@ const LoginForm: React.FC = () => {
               variant="outline"
               onClick={() => handleSocialLogin("github")}
               disabled={isSubmitting}
+              className="border border-border hover:bg-accent/10"
             >
               <Github className="h-4 w-4 mr-2" /> GitHub
             </Button>

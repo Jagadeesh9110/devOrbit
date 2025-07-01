@@ -5,11 +5,26 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BugList } from "@/components/bug/BugList";
 import { KanbanBoard } from "@/components/kanbanBoard";
 import BugDetails from "@/components/BugDetails";
-import { SearchBar } from "@/components//bug/SearchBar";
+import { SearchBar } from "@/components/bug/SearchBar";
 import { FilterBar } from "@/components/FilterBar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { List, Bug, Plus, Filter, BarChart3, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import {
+  List,
+  Bug,
+  Plus,
+  Filter,
+  BarChart3,
+  Clock,
+  Search,
+  Target,
+  TrendingUp,
+  CheckCircle,
+  AlertTriangle,
+  ArrowRight,
+  Eye,
+} from "lucide-react";
 import { fetchWithAuth } from "@/lib/auth";
 import { PopulatedBug, BugFilters } from "@/types/bug";
 
@@ -23,6 +38,115 @@ interface BugStats {
   critical: number;
   avgResolutionTime: string;
 }
+
+const EmptyBugsState = ({
+  onReportBug,
+}: {
+  onReportBug: (projectId?: string) => void;
+}) => (
+  <div className="text-center py-16">
+    <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
+      <Bug className="w-16 h-16 text-white" />
+    </div>
+    <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+      Your Bug Tracking Hub Awaits
+    </h2>
+    <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-2xl mx-auto">
+      Start by reporting your first bug to unlock powerful tracking features,
+      AI-powered insights, and team collaboration tools.
+    </p>
+    <div className="flex flex-wrap gap-4 justify-center mb-12">
+      <Button
+        onClick={() => onReportBug()}
+        size="lg"
+        className="flex items-center gap-2"
+      >
+        <Plus className="w-5 h-5" />
+        Report Your First Bug
+      </Button>
+      <Button
+        onClick={() => onReportBug("/dashboard/projects/new")}
+        variant="outline"
+        size="lg"
+      >
+        <Target className="w-5 h-5 mr-2" />
+        Create a Project First
+      </Button>
+    </div>
+
+    {/* Feature Preview Grid */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+      <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 border-blue-200 dark:border-blue-800">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-blue-500 flex items-center justify-center">
+            <List className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            Smart Organization
+          </h3>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Automatic categorization and priority assignment with AI assistance
+          </p>
+        </div>
+      </Card>
+
+      <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-green-500 flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">
+            Progress Tracking
+          </h3>
+          <p className="text-sm text-green-700 dark:text-green-300">
+            Visual kanban boards and real-time status updates
+          </p>
+        </div>
+      </Card>
+
+      <Card className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950 border-purple-200 dark:border-purple-800">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-purple-500 flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">
+            AI Analytics
+          </h3>
+          <p className="text-sm text-purple-700 dark:text-purple-300">
+            Intelligent insights about patterns and resolution trends
+          </p>
+        </div>
+      </Card>
+    </div>
+  </div>
+);
+
+const StatPlaceholder = ({
+  icon: Icon,
+  label,
+  color,
+  description,
+}: {
+  icon: any;
+  label: string;
+  color: string;
+  description: string;
+}) => (
+  <Card className="p-4">
+    <div className="text-center">
+      <div className="flex items-center justify-center mb-2">
+        <Icon className={`w-6 h-6 ${color}`} />
+      </div>
+      <div className="text-2xl font-bold text-slate-400 dark:text-slate-600">
+        --
+      </div>
+      <div className="text-sm text-slate-600 dark:text-slate-400">{label}</div>
+      <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+        {description}
+      </div>
+    </div>
+  </Card>
+);
 
 export default function BugsPage(): JSX.Element {
   const router = useRouter();
@@ -101,6 +225,14 @@ export default function BugsPage(): JSX.Element {
     return true;
   });
 
+  const hasBugs = bugs.length > 0;
+
+  const handleReportBug = (path?: string) => {
+    router.push(
+      path || `/dashboard/bugs/new${projectId ? `?projectId=${projectId}` : ""}`
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <main className="container mx-auto px-4 py-6">
@@ -116,13 +248,7 @@ export default function BugsPage(): JSX.Element {
 
           <Button
             className="flex items-center gap-2"
-            onClick={() =>
-              router.push(
-                `/dashboard/bugs/new${
-                  projectId ? `?projectId=${projectId}` : ""
-                }`
-              )
-            }
+            onClick={() => handleReportBug()}
           >
             <Plus className="w-4 h-4" />
             Report Bug
@@ -137,27 +263,8 @@ export default function BugsPage(): JSX.Element {
           <div className="text-center py-12">
             <p className="text-red-500 dark:text-red-400">{error}</p>
           </div>
-        ) : bugs.length === 0 ? (
-          <div className="text-center py-10">
-            <Bug className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-              No bugs found
-            </h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">
-              Create your first bug report to get started.
-            </p>
-            <Button
-              onClick={() =>
-                router.push(
-                  `/dashboard/bugs/new${
-                    projectId ? `?projectId=${projectId}` : ""
-                  }`
-                )
-              }
-            >
-              Create First Bug
-            </Button>
-          </div>
+        ) : !hasBugs ? (
+          <EmptyBugsState onReportBug={handleReportBug} />
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

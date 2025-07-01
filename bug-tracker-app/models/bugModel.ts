@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, model } from "mongoose";
+import { notificationsController } from "@/controllers/notificationsController";
 
 export interface IBug extends Document {
   _id: mongoose.Types.ObjectId;
@@ -28,7 +29,7 @@ export interface IBug extends Document {
       userId: mongoose.Types.ObjectId;
       createdAt: Date;
     }>;
-    timeSpent?: number; // Added for time tracking (hours)
+    timeSpent?: number;
     createdAt: Date;
     updatedAt: Date;
   }>;
@@ -50,7 +51,7 @@ export interface IBug extends Document {
   reopenedBy?: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
-  // Virtual methods
+  embedding: number[];
   activities: {
     created: Date;
     updated: Date;
@@ -58,13 +59,12 @@ export interface IBug extends Document {
   };
   commentCount: number;
   viewerCount: number;
-  // Instance methods
   updateViewer(userId: mongoose.Types.ObjectId): Promise<IBug>;
   addComment(
     text: string,
     authorId: mongoose.Types.ObjectId,
     mentions?: mongoose.Types.ObjectId[],
-    timeSpent?: number // Added for time tracking
+    timeSpent?: number
   ): Promise<IBug>;
 }
 
@@ -81,7 +81,7 @@ export interface BugInput {
   comments?: Array<{
     text: string;
     author: mongoose.Types.ObjectId;
-    timeSpent?: number; // Added for time tracking
+    timeSpent?: number;
     createdAt: Date;
   }>;
   attachments?: string[];
@@ -97,6 +97,7 @@ export interface BugInput {
   reopenedBy?: mongoose.Types.ObjectId[];
   createdAt?: Date;
   updatedAt?: Date;
+  embedding?: number[];
 }
 
 const commentSchema = new mongoose.Schema(
@@ -133,7 +134,7 @@ const commentSchema = new mongoose.Schema(
       },
     ],
     timeSpent: {
-      type: Number, // Hours spent
+      type: Number,
       min: [0, "Time spent cannot be negative"],
     },
     createdAt: {
@@ -290,6 +291,10 @@ const bugSchema = new mongoose.Schema<IBug>(
         ref: "User",
       },
     ],
+    embedding: {
+      type: [Number], // Array of numbers for the vector
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -353,6 +358,25 @@ bugSchema.methods.addComment = async function (
     updatedAt: new Date(),
   });
 
+  // Trigger notifications for mentions
+  try {
+    if (mentions.length > 0) {
+      for (const userId of mentions) {
+        if (userId.toString() !== authorId.toString()) {
+          await notificationsController.createNotification(
+            userId.toString(),
+            "mention",
+            `Mentioned in Bug: ${this.title}`,
+            `You were mentioned in a comment on bug "${this.title}"`,
+            this._id.toString()
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error creating mention notifications:", error);
+  }
+
   return await this.save();
 };
 
@@ -364,10 +388,70 @@ bugSchema.index({ labels: 1, projectId: 1 });
 bugSchema.index({ createdAt: -1 });
 bugSchema.index({ updatedAt: -1 });
 
-bugSchema.pre<IBug>("save", function (next) {
-  if (this.isModified("status") && this.status === "Resolved") {
-    this.updatedAt = new Date();
+bugSchema.pre<IBug>("save", async function (next) {
+  try {
+    if (
+      this.isModified("status") &&
+      this.status === "Resolved" &&
+      this.resolvedBy
+    ) {
+      this.updatedAt = new Date();
+      // Notify assignee and creator
+      if (
+        this.assigneeId &&
+        this.assigneeId.toString() !== this.createdBy.toString()
+      ) {
+        await notificationsController.createNotification(
+          this.assigneeId.toString(),
+          "bug_resolved",
+          `Bug Resolved: ${this.title}`,
+          `Bug "${this.title}" has been resolved`,
+          this._id.toString()
+        );
+      }
+      await notificationsController.createNotification(
+        this.createdBy.toString(),
+        "bug_resolved",
+        `Bug Resolved: ${this.title}`,
+        `Bug "${this.title}" has been resolved`,
+        this._id.toString()
+      );
+    }
+
+    if (this.isModified("assigneeId") && this.assigneeId) {
+      // Notify new assignee
+      await notificationsController.createNotification(
+        this.assigneeId.toString(),
+        "bug_assigned",
+        `Bug Assigned: ${this.title}`,
+        `You have been assigned to bug "${this.title}"`,
+        this._id.toString()
+      );
+    }
+
+    if (
+      this.isNew &&
+      (this.priority === "Critical" || this.severity === "Critical")
+    ) {
+      // Notify project manager
+      const Project = mongoose.model("Project");
+      const project = await Project.findById(this.projectId).select(
+        "managerId"
+      );
+      if (project && project.managerId) {
+        await notificationsController.createNotification(
+          project.managerId.toString(),
+          "critical",
+          `Critical Bug: ${this.title}`,
+          `A critical bug "${this.title}" has been reported`,
+          this._id.toString()
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error creating notifications in bug save:", error);
   }
+
   if (this.isModified("comments")) {
     const now = new Date();
     this.comments.forEach((comment) => {

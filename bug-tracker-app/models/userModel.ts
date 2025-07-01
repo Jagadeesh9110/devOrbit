@@ -18,8 +18,6 @@ export interface IUser extends Document {
   authProviderId?: string;
   notificationsEnabled: boolean;
   themePreference: "light" | "dark" | "system";
-
-  // Additional fields for team management
   phone?: string;
   location?: string;
   bio?: string;
@@ -29,6 +27,12 @@ export interface IUser extends Document {
   salary?: string;
   skills?: string[];
   status?: "online" | "away" | "offline";
+  // Stripe fields // razorpay we will implement later after deployment this is just for refreence later that's it we are not using and implemented this .
+  stripeCustomerId?: string;
+  subscriptionStatus?: "inactive" | "active" | "canceled" | "past_due";
+  subscriptionId?: string;
+  subscriptionPlan?: string;
+  nextBillingDate?: Date;
 
   comparePassword(enteredPassword: string): Promise<boolean>;
 }
@@ -124,7 +128,6 @@ const userSchema = new Schema<IUser>(
       enum: ["light", "dark", "system"],
       default: "system",
     },
-
     phone: {
       type: String,
       trim: true,
@@ -163,6 +166,27 @@ const userSchema = new Schema<IUser>(
       enum: ["online", "away", "offline"],
       default: "offline",
     },
+    stripeCustomerId: {
+      type: String,
+      default: null,
+    },
+    subscriptionStatus: {
+      type: String,
+      enum: ["inactive", "active", "canceled", "past_due"],
+      default: "inactive",
+    },
+    subscriptionId: {
+      type: String,
+      default: null,
+    },
+    subscriptionPlan: {
+      type: String,
+      default: null,
+    },
+    nextBillingDate: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -175,6 +199,8 @@ userSchema.index({ email: 1 });
 userSchema.index({ teamIds: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ department: 1 });
+userSchema.index({ stripeCustomerId: 1 });
+userSchema.index({ subscriptionStatus: 1 });
 
 userSchema.pre<IUser>("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
