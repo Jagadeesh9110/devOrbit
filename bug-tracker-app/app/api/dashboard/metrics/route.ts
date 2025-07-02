@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(accessToken);
-    console.log("Metrics: Payload:", payload);
     if (!payload || !payload.userId) {
       console.log("Metrics: Invalid token or missing userId");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

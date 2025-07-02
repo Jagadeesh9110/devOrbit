@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
     let userId: string;
     try {
       const decoded = verifyToken(accessToken);
+      if (!decoded) {
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      }
       userId = decoded.userId;
       if (!userId) {
         throw new Error("Invalid token payload");

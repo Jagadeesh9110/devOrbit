@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
   try {
     const payload = verifyToken(token);
 
-    // Add null check for payload
     if (!payload) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }

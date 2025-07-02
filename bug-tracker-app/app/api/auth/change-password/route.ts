@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = verifyToken(accessToken);
+    if (!payload) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
     const userId = payload.userId;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {

@@ -52,7 +52,6 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = verifyToken(accessToken);
-    console.log("Recent Activities: Payload:", payload);
     if (!payload || !payload.userId) {
       console.log("Recent Activities: Invalid token or missing userId");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

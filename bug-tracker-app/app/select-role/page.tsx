@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 
-const validRoles = ["Developer", "Tester", "Project Manager", "Team Manager"];
+const validRoles = ["Admin", "Project Manager", "Developer", "Tester"] as const;
 
 export default function SelectRolePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,7 +39,6 @@ export default function SelectRolePage() {
         throw new Error(data.message || "Failed to update role");
       }
 
-      // Redirect to the original destination or dashboard
       const redirectPath = searchParams.get("from") || "/dashboard";
       router.push(redirectPath);
     } catch (error) {
@@ -90,15 +89,16 @@ export default function SelectRolePage() {
             </select>
           </div>
 
-          <Button
-            type="submit"
-            fullWidth
-            rightIcon={<ArrowRight size={18} />}
-            disabled={isSubmitting}
-            variant="primary"
-          >
-            {isSubmitting ? "Saving..." : "Continue"}
-          </Button>
+          <div className="w-full">
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isSubmitting}
+              variant="primary"
+            >
+              {isSubmitting ? "Saving..." : "Continue"}
+            </Button>
+          </div>
         </form>
       </div>
     </div>
