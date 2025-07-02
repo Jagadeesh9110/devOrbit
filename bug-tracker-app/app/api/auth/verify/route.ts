@@ -1,4 +1,6 @@
 // app/api/auth/verify/route.ts - Enhanced version
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import User from "@/models/userModel";
 import { verifyToken, refreshAccessToken, setAuthCookies } from "@/lib/auth";
