@@ -55,7 +55,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         },
       ];
 
-      const searchResult = await aiService.searchWithAI(query, mockData);
+      const searchResult = await aiService.searchWithAI(query);
       setSearchConfidence(searchResult.confidence);
       setAISuggestions(searchResult.suggestions.slice(0, 3));
 
