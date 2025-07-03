@@ -10,11 +10,15 @@ import {
   Cog6ToothIcon,
   BellIcon,
   UserIcon,
+  ArrowRightOnRectangleIcon,
+  HomeIcon,
 } from "@heroicons/react/24/outline";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import axios from "axios";
 
 const navigation = [
+  { name: "Home", href: "/", icon: HomeIcon },
   { name: "Projects", href: "/dashboard/projects", icon: FolderIcon },
   { name: "Bugs", href: "/dashboard/bugs", icon: BugAntIcon },
   { name: "Team", href: "/dashboard/team", icon: UserGroupIcon },
@@ -27,9 +31,22 @@ const navigation = [
 
 export default function DashboardHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [notifications, setNotifications] = useState(3);
 
   const isActive = (path: string) => pathname === path;
+
+  const handleLogout = async () => {
+    const confirmed = window.confirm("Are you sure you want to logout?");
+    if (!confirmed) return;
+
+    try {
+      await axios.post("/api/auth/logout");
+      router.push("/");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+  };
 
   return (
     <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50">
@@ -133,9 +150,7 @@ export default function DashboardHeader() {
                   <Menu.Item>
                     {({ active }) => (
                       <button
-                        onClick={() => {
-                          // TODO: Add logout logic here
-                        }}
+                        onClick={handleLogout}
                         className={`${
                           active ? "bg-slate-50 dark:bg-slate-700" : ""
                         } block w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:text-red-600 transition-colors duration-200`}

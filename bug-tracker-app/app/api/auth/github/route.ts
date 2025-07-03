@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   await connectDB();
   const searchParams = request.nextUrl.searchParams;
   const callbackUrl = searchParams.get("callbackUrl");
-  const role = searchParams.get("role") || "Developer"; // Default role
+  const role = searchParams.get("role") || "Developer";
 
   if (!GITHUB_CLIENT_ID) {
     return NextResponse.json(

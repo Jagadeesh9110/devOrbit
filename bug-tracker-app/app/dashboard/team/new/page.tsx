@@ -470,7 +470,7 @@ const TeamMemberAdd = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push("/team")}
+                onClick={() => router.push("/dashboard/team")}
                 disabled={loading}
               >
                 Cancel

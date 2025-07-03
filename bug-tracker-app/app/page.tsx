@@ -31,6 +31,8 @@ export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<any[]>([]);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
 
   // Check authentication status on component mount
   useEffect(() => {
@@ -58,6 +60,88 @@ export default function Home() {
     };
 
     checkAuthStatus();
+  }, []);
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch("/api/auth/verify", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  useEffect(() => {
+    const fetchStatsAndTestimonials = async () => {
+      try {
+        const [statsRes, testimonialsRes] = await Promise.all([
+          fetch("/api/landing"),
+          fetch("/api/landing/testimonials"),
+        ]);
+
+        if (statsRes.ok && testimonialsRes.ok) {
+          const statsData = await statsRes.json();
+          const testimonialData = await testimonialsRes.json();
+
+          const statIcons: Record<string, any> = {
+            "Bugs Tracked": CheckCircle,
+            Teams: Users,
+            "Resolved Issues": CheckCircle,
+            "Active Users": Users,
+          };
+
+          const formattedStats = [
+            {
+              label: "Bugs Tracked",
+              value: statsData.stats.bugsTracked,
+              icon: statIcons["Bugs Tracked"],
+            },
+            {
+              label: "Teams",
+              value: statsData.stats.teams,
+              icon: statIcons["Teams"],
+            },
+            {
+              label: "Resolved Issues",
+              value: statsData.stats.resolvedIssues,
+              icon: statIcons["Resolved Issues"],
+            },
+            {
+              label: "Active Users",
+              value: statsData.stats.activeUsers,
+              icon: statIcons["Active Users"],
+            },
+          ];
+
+          setStats(formattedStats);
+          setTestimonials(testimonialData.testimonials);
+        } else {
+          console.error("Failed to fetch stats or testimonials");
+        }
+      } catch (error) {
+        console.error("Error loading landing data:", error);
+      }
+    };
+
+    fetchStatsAndTestimonials();
   }, []);
 
   const handleGetStarted = () => {
@@ -127,12 +211,6 @@ export default function Home() {
     },
   ];
 
-  const stats = [
-    { label: "Bugs Tracked", value: 12450, icon: CheckCircle },
-    { label: "Teams", value: 320, icon: Users },
-    { label: "Resolved Issues", value: 11800, icon: CheckCircle },
-    { label: "Active Users", value: 2100, icon: Users },
-  ];
   interface WorkflowStep {
     step: string;
     title: string;
@@ -152,7 +230,7 @@ export default function Home() {
       description:
         "AI automatically captures, categorizes, and prioritizes bugs from multiple sources.",
       icon: Brain,
-      image: "/devOrbit-I.jpeg", // Corrected path
+      image: "/devOrbit-I.jpeg",
     },
     {
       step: "02",
@@ -160,7 +238,7 @@ export default function Home() {
       description:
         "Machine learning assigns bugs to the most suitable developer based on expertise and workload.",
       icon: Users,
-      image: "/devOrbit-II.jpeg", // Corrected path
+      image: "/devOrbit-II.jpeg",
     },
     {
       step: "03",
@@ -168,7 +246,7 @@ export default function Home() {
       description:
         "Real-time collaboration with live code sharing and AI-powered solution recommendations.",
       icon: Zap,
-      image: "/devOrbit-III.jpeg", // Corrected path
+      image: "/devOrbit-III.jpeg",
     },
   ];
 
@@ -204,30 +282,6 @@ export default function Home() {
       </motion.div>
     );
   };
-
-  const testimonials = [
-    {
-      quote:
-        "devOrbit reduced our debugging time by 73% and transformed our development velocity.",
-      author: "Alex Chen",
-      role: "Senior Developer at TechFlow",
-      rating: 5,
-    },
-    {
-      quote:
-        "The AI insights helped us prevent 12 critical production issues last month. A game-changer!",
-      author: "Sarah Martinez",
-      role: "Engineering Lead at InnovateLabs",
-      rating: 5,
-    },
-    {
-      quote:
-        "A bug tracker built for 2025. The interface is phenomenal, and AI suggestions are spot-on.",
-      author: "David Kim",
-      role: "CTO at StartupX",
-      rating: 5,
-    },
-  ];
 
   const AnimatedCounter = ({ value }: { value: number }) => {
     const [count, setCount] = useState(0);
@@ -626,7 +680,7 @@ export default function Home() {
                       <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
                         {testimonial.author
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")}
                       </div>
                       <div>

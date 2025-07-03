@@ -125,7 +125,10 @@ const ProjectNew = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <main className="container mx-auto px-4 py-6">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => router.push("/projects")}>
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/dashboard/projects")}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Projects
           </Button>
