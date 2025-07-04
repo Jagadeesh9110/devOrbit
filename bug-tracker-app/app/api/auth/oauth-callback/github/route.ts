@@ -106,9 +106,11 @@ export async function GET(request: NextRequest) {
       role: user.role as string,
     });
 
-    const response = NextResponse.redirect(callbackUrl);
-    setAuthCookies(response, accessToken, refreshToken);
-    return response;
+    return setAuthCookies(
+      NextResponse.redirect(callbackUrl),
+      accessToken,
+      refreshToken
+    );
   } catch (error) {
     console.error("GitHub OAuth callback error:", error);
     const stateParam = searchParams.get("state");
