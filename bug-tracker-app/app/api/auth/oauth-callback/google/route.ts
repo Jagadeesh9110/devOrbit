@@ -11,6 +11,8 @@ const googleClient = new OAuth2Client(
   `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/oauth-callback/google`
 );
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+
 export async function GET(request: NextRequest) {
   await connectDB();
   const searchParams = request.nextUrl.searchParams;
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   if (!code || !state) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/auth/login?error=Invalid OAuth callback`
+      `${APP_URL}/auth/login?error=Invalid OAuth callback`
     );
   }
 
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (user) {
       if (user.authProvider !== "GOOGLE" && user.authProvider !== null) {
         return NextResponse.redirect(
-          `${callbackUrl}&error=Email already registered with ${user.authProvider}. Please log in with your credentials.`
+          `${callbackUrl}?error=Email already registered with ${user.authProvider}. Please log in with your credentials.`
         );
       }
       if (!user.authProvider || user.authProvider !== "GOOGLE") {
@@ -83,23 +85,28 @@ export async function GET(request: NextRequest) {
       role: user.role as string,
     });
 
-    return setAuthCookies(
-      NextResponse.redirect(callbackUrl),
-      accessToken,
-      refreshToken
-    );
+    // FIX: Redirect directly to the original callback URL, not to an intermediate page
+    const finalRedirectUrl = callbackUrl || `${APP_URL}/dashboard`;
+    const response = NextResponse.redirect(finalRedirectUrl);
+
+    // Set cookies with explicit logging for debugging
+    console.log("Setting OAuth cookies for user:", user._id);
+    console.log("Redirect URL:", finalRedirectUrl);
+
+    return setAuthCookies(response, accessToken, refreshToken);
   } catch (error) {
     console.error("Google OAuth callback error:", error);
     const stateParam = searchParams.get("state");
-    let redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/login?error=Google login failed`;
+    let redirectUrl = `${APP_URL}/auth/login?error=Google login failed`;
+
     if (stateParam) {
       try {
         const { callbackUrl: originalCallbackUrl } = JSON.parse(stateParam);
         if (originalCallbackUrl) {
-          redirectUrl = `${originalCallbackUrl}&error=Google login failed`;
+          redirectUrl = `${originalCallbackUrl}?error=Google login failed`;
         }
       } catch (e) {
-        console.log("Error parsing state paramerter:", e);
+        console.log("Error parsing state parameter:", e);
       }
     }
     return NextResponse.redirect(redirectUrl);

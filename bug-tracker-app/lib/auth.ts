@@ -78,6 +78,17 @@ export const setAuthCookies = (
   response.cookies.delete("refreshToken");
 
   const isProduction = process.env.NODE_ENV === "production";
+
+  // Get the current domain for production
+  const domain = isProduction ? process.env.COOKIE_DOMAIN : undefined;
+
+  console.log("Setting cookies:", {
+    isProduction,
+    domain,
+    accessTokenLength: accessToken.length,
+    refreshTokenLength: refreshToken.length,
+  });
+
   response.cookies.set({
     name: "accessToken",
     value: accessToken,
@@ -85,7 +96,8 @@ export const setAuthCookies = (
     secure: isProduction,
     sameSite: "lax",
     path: "/",
-    maxAge: 3600, // 1 hour
+    maxAge: 3600,
+    ...(domain && { domain }),
   });
 
   response.cookies.set({
@@ -95,7 +107,8 @@ export const setAuthCookies = (
     secure: isProduction,
     sameSite: "lax",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 7 * 24 * 60 * 60,
+    ...(domain && { domain }),
   });
 
   return response;

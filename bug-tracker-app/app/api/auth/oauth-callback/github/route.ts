@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     if (user) {
       if (user.authProvider !== "GITHUB" && user.authProvider !== null) {
         return NextResponse.redirect(
-          `${callbackUrl}&error=Email already registered with ${user.authProvider}. Please log in with your original method.`
+          `${callbackUrl}?error=Email already registered with ${user.authProvider}. Please log in with your original method.`
         );
       }
       if (!user.authProvider || user.authProvider !== "GITHUB") {
@@ -106,23 +106,25 @@ export async function GET(request: NextRequest) {
       role: user.role as string,
     });
 
-    return setAuthCookies(
-      NextResponse.redirect(callbackUrl),
-      accessToken,
-      refreshToken
-    );
+    // FIX: Redirect directly to the original callback URL, not to an intermediate page
+    const finalRedirectUrl = callbackUrl || `${APP_URL}/dashboard`;
+    const response = NextResponse.redirect(finalRedirectUrl);
+
+    // Set cookies and return the response
+    return setAuthCookies(response, accessToken, refreshToken);
   } catch (error) {
     console.error("GitHub OAuth callback error:", error);
     const stateParam = searchParams.get("state");
     let redirectUrl = `${APP_URL}/auth/login?error=GitHub login failed`;
+
     if (stateParam) {
       try {
         const { callbackUrl: originalCallbackUrl } = JSON.parse(stateParam);
         if (originalCallbackUrl) {
-          redirectUrl = `${originalCallbackUrl}&error=GitHub login failed`;
+          redirectUrl = `${originalCallbackUrl}?error=GitHub login failed`;
         }
       } catch (e) {
-        console.log("Error parsing state paramerter:", e);
+        console.log("Error parsing state parameter:", e);
       }
     }
     return NextResponse.redirect(redirectUrl);

@@ -2,10 +2,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyEmail } from "../../../../controllers/authController";
-import connectDB from "../../../../lib/db/Connect";
+import { verifyEmail } from "@/controllers/authController";
+import connectDB from "@/lib/db/Connect";
 import jwt from "jsonwebtoken";
-import User from "../../../../models/userModel";
+import User from "@/models/userModel";
 
 export async function POST(request: NextRequest) {
   try {

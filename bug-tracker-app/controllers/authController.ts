@@ -43,7 +43,8 @@ export const registerUser = async (req: Request) => {
       { expiresIn: "24h" }
     );
 
-    const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${verificationToken}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const verificationLink = `${baseUrl}/auth/verify-email?token=${verificationToken}`;
 
     await sendEmail({
       to: newUser.email,
