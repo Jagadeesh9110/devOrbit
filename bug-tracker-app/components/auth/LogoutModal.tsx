@@ -10,9 +10,15 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  isLoading?: boolean;
 }
 
-export function LogoutModal({ open, onClose, onConfirm }: Props) {
+export function LogoutModal({
+  open,
+  onClose,
+  onConfirm,
+  isLoading = false,
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="backdrop-blur-md bg-white/80 dark:bg-black/80">
@@ -21,11 +27,15 @@ export function LogoutModal({ open, onClose, onConfirm }: Props) {
           Are you sure you want to log out?
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            Logout
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isLoading}
+          >
+            {isLoading ? "Logging out..." : "Logout"}
           </Button>
         </DialogFooter>
       </DialogContent>

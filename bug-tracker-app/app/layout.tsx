@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "Track, manage, and resolve bugs efficiently with our powerful bug tracking platform",
   keywords: "bug tracking, issue management, software development",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/devOrbit-logo.ico",
   },
 };
 

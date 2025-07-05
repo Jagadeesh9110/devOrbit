@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.log("User ID from token:", payload.userId);
 
     const projects = await getAllProjects(payload.userId);
     return NextResponse.json({ success: true, data: projects });

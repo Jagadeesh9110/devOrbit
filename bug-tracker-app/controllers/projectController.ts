@@ -20,7 +20,7 @@ type LeanProject = {
   _id: string;
   name: string;
   description?: string;
-  status: "Active" | "Archived";
+  status: "active" | "planning" | "completed" | "on-hold";
   team: string[];
   teamMembers: LeanTeamMember[];
   managerId: string;
@@ -31,6 +31,8 @@ type LeanProject = {
   memberCount?: number;
   activities?: { created: Date; updated: Date; members: number };
   dueDate?: Date;
+  priority: "high" | "medium" | "low";
+  tags: string[];
 };
 
 // Type for lean Bug document - Updated to match Mongoose lean result
@@ -53,7 +55,7 @@ export const getAllProjects = async (userId: string) => {
       ],
     })
       .select(
-        "name description status team teamMembers managerId createdAt updatedAt dueDate"
+        "name description status team teamMembers managerId createdAt updatedAt dueDate priority tags"
       )
       .lean()) as LeanProject[];
 
@@ -73,6 +75,7 @@ export const getAllProjects = async (userId: string) => {
             ? Math.round(((totalBugs - openBugs) / totalBugs) * 100)
             : 0,
           team: project.teamMembers.map((member) => member.userId),
+          dueDate: project.dueDate ? project.dueDate.toISOString() : undefined,
         };
       })
     );
@@ -129,7 +132,7 @@ export const getProjectById = async (projectId: string, userId: string) => {
 
     const project = (await Project.findById(projectId)
       .select(
-        "name description status team teamMembers managerId createdAt updatedAt dueDate"
+        "name description status team teamMembers managerId createdAt updatedAt dueDate priority tags"
       )
       .lean()) as LeanProject;
 
@@ -161,6 +164,7 @@ export const getProjectById = async (projectId: string, userId: string) => {
         ? Math.round(((totalBugs - openBugs) / totalBugs) * 100)
         : 0,
       team: project.teamMembers.map((member) => member.userId),
+      dueDate: project.dueDate ? project.dueDate.toISOString() : undefined,
     };
   } catch (error: any) {
     console.error("getProjectById error:", error.message);
