@@ -148,9 +148,17 @@ export const createBug = async (request: NextRequest, userId: string) => {
 
 export const getAllBugs = async (userId: string) => {
   await connectDB();
-
   try {
-    const bugs = await Bug.find({ createdBy: userId })
+    const projects = await Project.find({
+      $or: [
+        { "teamMembers.userId": new mongoose.Types.ObjectId(userId) },
+        { managerId: new mongoose.Types.ObjectId(userId) },
+      ],
+    }).select("_id");
+
+    const projectIds = projects.map((project) => project._id);
+
+    const bugs = await Bug.find({ projectId: { $in: projectIds } })
       .populate("createdBy", "name email")
       .populate("assigneeId", "name email")
       .sort({ createdAt: -1 });
