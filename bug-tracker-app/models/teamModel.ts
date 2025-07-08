@@ -5,12 +5,7 @@ export interface ITeam extends Document {
   description?: string;
   members: Array<{
     userId: mongoose.Types.ObjectId;
-    role:
-      | "Project Manager"
-      | "Team Lead"
-      | "Senior Developer"
-      | "Developer"
-      | "QA Engineer";
+    role: "Admin" | "Project Manager" | "Developer" | "Tester";
     joinedAt: Date;
     workload?: number;
     assignedBugs?: number;
@@ -44,13 +39,7 @@ const teamSchema = new Schema<ITeam>(
         },
         role: {
           type: String,
-          enum: [
-            "Project Manager",
-            "Team Lead",
-            "Senior Developer",
-            "Developer",
-            "QA Engineer",
-          ],
+          enum: ["Admin", "Project Manager", "Developer", "Tester"],
           default: "Developer",
         },
         joinedAt: {

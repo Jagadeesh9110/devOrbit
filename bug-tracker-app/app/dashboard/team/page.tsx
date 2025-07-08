@@ -10,6 +10,21 @@ import { Avatar, AvatarFallback } from "@/components/ui/Avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { Input } from "@/components/ui/Input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/Dialog";
+import { Label } from "@/components/ui/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
+import {
   Users,
   UserPlus,
   Settings,
@@ -27,6 +42,7 @@ import {
   Zap,
   Eye,
   Plus,
+  Send,
 } from "lucide-react";
 import { fetchWithAuth } from "@/lib/auth";
 import { aiService, AITeamInsights } from "@/lib/services/AiService";
@@ -56,10 +72,17 @@ const TeamPage: React.FC = () => {
   const [loadingInsights, setLoadingInsights] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("Developer");
+  const [inviteTeamId, setInviteTeamId] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembersAndTeams = async () => {
     setLoading(true);
     try {
       const response = await fetchWithAuth("/api/teams");
@@ -67,7 +90,8 @@ const TeamPage: React.FC = () => {
         throw new Error(response.error);
       }
 
-      // Aggregate members from all teams
+      setTeams(response.data);
+
       const members: TeamMember[] = [];
       response.data.forEach((team: any) => {
         team.members.forEach((member: any) => {
@@ -96,8 +120,8 @@ const TeamPage: React.FC = () => {
 
       setTeamMembers(members);
     } catch (err: any) {
-      console.error("Error fetching team members:", err);
-      setError(err.message || "Failed to load team members");
+      console.error("Error fetching data:", err);
+      setError(err.message || "Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -116,7 +140,7 @@ const TeamPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchTeamMembers();
+    fetchTeamMembersAndTeams();
   }, []);
 
   useEffect(() => {
@@ -161,6 +185,32 @@ const TeamPage: React.FC = () => {
 
   const handleMemberClick = (memberId: string): void => {
     router.push(`/dashboard/team/${memberId}`);
+  };
+
+  const handleSendInvite = async () => {
+    setInviteLoading(true);
+    setInviteError(null);
+    try {
+      const response = await fetchWithAuth(
+        `/api/teams/${inviteTeamId}/invite`,
+        {
+          method: "POST",
+          body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        }
+      );
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      setInviteOpen(false);
+      setInviteEmail("");
+      setInviteRole("Developer");
+      setInviteTeamId("");
+      fetchTeamMembersAndTeams(); // Refresh data
+    } catch (err: any) {
+      setInviteError(err.message || "Failed to send invitation");
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   const renderInsightItem = (
@@ -215,6 +265,74 @@ const TeamPage: React.FC = () => {
               <UserPlus className="w-4 h-4 mr-2" />
               Add Member
             </Button>
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Send className="w-4 h-4 mr-2" />
+                  Invite Member
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite a Team Member</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="team">Team</Label>
+                    <Select
+                      value={inviteTeamId}
+                      onValueChange={setInviteTeamId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((team) => (
+                          <SelectItem key={team._id} value={team._id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={inviteRole} onValueChange={setInviteRole}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Project Manager">
+                          Project Manager
+                        </SelectItem>
+                        <SelectItem value="Developer">Developer</SelectItem>
+                        <SelectItem value="Tester">Tester</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {inviteError && (
+                    <p className="text-red-500 text-sm">{inviteError}</p>
+                  )}
+                  <Button
+                    onClick={handleSendInvite}
+                    disabled={inviteLoading || !inviteEmail || !inviteTeamId}
+                  >
+                    {inviteLoading ? "Sending..." : "Send Invitation"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
