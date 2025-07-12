@@ -287,18 +287,28 @@ const Settings = () => {
     }
   };
 
-  const handlePasswordUpdate = async (data: z.infer<typeof passwordSchema>) => {
+  const handlePasswordUpdate = async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }) => {
     try {
-      const res = await fetchWithAuth("/api/settings/password", {
-        method: "PUT",
+      const response = await fetch("/api/settings/password", {
+        method: "POST",
+        credentials: "include", // Include cookies in the request
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
-      if (!res.success)
-        throw new Error(res.error || "Failed to update password");
-      toast.success("Password updated successfully");
-      passwordForm.reset();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update password");
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(result.error);
+      } else {
+        alert(result.data.message);
+      }
+    } catch (error) {
+      alert("An error occurred while updating the password");
     }
   };
 

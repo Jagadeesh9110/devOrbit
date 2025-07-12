@@ -27,30 +27,64 @@ import { Badge } from "@/components/ui/Badge";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useState, useEffect } from "react";
 
+// Type definitions for API responses
+interface Stats {
+  bugsTracked: number;
+  teams: number;
+  resolvedIssues: number;
+  activeUsers: number;
+}
+
+interface Testimonial {
+  _id: string;
+  quote: string;
+  author: string;
+  role: string;
+  rating: number;
+  createdAt: string;
+}
+
+interface TestimonialStats {
+  averageRating: number;
+  totalCount: number;
+  displayRating: string;
+}
+
+interface LandingData {
+  stats: Stats;
+}
+
+interface TestimonialData {
+  testimonials: Testimonial[];
+  stats: TestimonialStats;
+}
+
+interface FormattedStat {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState<any[]>([]);
-  const [testimonials, setTestimonials] = useState<any[]>([]);
+  const [stats, setStats] = useState<FormattedStat[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [testimonialStats, setTestimonialStats] =
+    useState<TestimonialStats | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
 
-  // Check authentication status on component mount
+  // Check authentication status on mount
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
         const response = await fetch("/api/auth/verify", {
           method: "GET",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
-
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
+        setIsAuthenticated(response.ok);
       } catch (error) {
         console.error("Auth check error:", error);
         setIsAuthenticated(false);
@@ -58,57 +92,32 @@ export default function Home() {
         setIsLoading(false);
       }
     };
-
     checkAuthStatus();
   }, []);
 
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const response = await fetch("/api/auth/verify", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
-
+  // Fetch stats and testimonials from API
   useEffect(() => {
     const fetchStatsAndTestimonials = async () => {
       try {
+        setDataLoading(true);
         const [statsRes, testimonialsRes] = await Promise.all([
           fetch("/api/landing"),
           fetch("/api/landing/testimonials"),
         ]);
 
-        if (statsRes.ok && testimonialsRes.ok) {
-          const statsData = await statsRes.json();
-          const testimonialData = await testimonialsRes.json();
-
-          const statIcons: Record<string, any> = {
-            "Bugs Tracked": CheckCircle,
+        // Handle stats
+        if (statsRes.ok) {
+          const statsData: LandingData = await statsRes.json();
+          const statIcons: Record<
+            string,
+            React.ComponentType<{ className?: string }>
+          > = {
+            "Bugs Tracked": Bug,
             Teams: Users,
             "Resolved Issues": CheckCircle,
             "Active Users": Users,
           };
-
-          const formattedStats = [
+          const formattedStats: FormattedStat[] = [
             {
               label: "Bugs Tracked",
               value: statsData.stats.bugsTracked,
@@ -130,42 +139,62 @@ export default function Home() {
               icon: statIcons["Active Users"],
             },
           ];
-
           setStats(formattedStats);
-          setTestimonials(testimonialData.testimonials);
         } else {
-          console.error("Failed to fetch stats or testimonials");
+          console.error("Failed to fetch stats:", statsRes.status);
+          setStats([
+            { label: "Bugs Tracked", value: 0, icon: Bug },
+            { label: "Teams", value: 0, icon: Users },
+            { label: "Resolved Issues", value: 0, icon: CheckCircle },
+            { label: "Active Users", value: 0, icon: Users },
+          ]);
+        }
+
+        // Handle testimonials
+        if (testimonialsRes.ok) {
+          const testimonialData: TestimonialData = await testimonialsRes.json();
+          setTestimonials(testimonialData.testimonials || []);
+          setTestimonialStats(testimonialData.stats || null);
+        } else {
+          console.error(
+            "Failed to fetch testimonials:",
+            testimonialsRes.status
+          );
+          setTestimonials([]);
+          setTestimonialStats(null);
         }
       } catch (error) {
         console.error("Error loading landing data:", error);
+        setStats([
+          { label: "Bugs Tracked", value: 0, icon: Bug },
+          { label: "Teams", value: 0, icon: Users },
+          { label: "Resolved Issues", value: 0, icon: CheckCircle },
+          { label: "Active Users", value: 0, icon: Users },
+        ]);
+        setTestimonials([]);
+        setTestimonialStats(null);
+      } finally {
+        setDataLoading(false);
       }
     };
-
     fetchStatsAndTestimonials();
   }, []);
 
+  // Navigation handlers
   const handleGetStarted = () => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    } else {
-      router.push("/auth/register");
-    }
+    router.push(isAuthenticated ? "/dashboard" : "/auth/register");
   };
 
   const handleLogin = () => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    } else {
-      router.push("/auth/login");
-    }
+    router.push(isAuthenticated ? "/dashboard" : "/auth/login");
   };
 
   const handleDemo = () => {
-    // For demo, we can either show a demo video or redirect to a demo page
-    // You can implement this based on your requirements
     console.log("Demo requested");
+    // Add demo logic here (e.g., open a modal or redirect)
   };
 
+  // Features data
   const features = [
     {
       icon: <Bug className="w-7 h-7 text-primary" />,
@@ -211,16 +240,13 @@ export default function Home() {
     },
   ];
 
+  // Workflow steps data
   interface WorkflowStep {
     step: string;
     title: string;
     description: string;
     icon: React.ComponentType<{ className?: string }>;
     image: string;
-  }
-
-  interface WorkflowStepImageProps {
-    step: WorkflowStep;
   }
 
   const workflowSteps: WorkflowStep[] = [
@@ -250,9 +276,13 @@ export default function Home() {
     },
   ];
 
-  const WorkflowStepImage: React.FC<WorkflowStepImageProps> = ({ step }) => {
-    const [imageError, setImageError] = useState<boolean>(false);
+  // Workflow step image component
+  interface WorkflowStepImageProps {
+    step: WorkflowStep;
+  }
 
+  const WorkflowStepImage: React.FC<WorkflowStepImageProps> = ({ step }) => {
+    const [imageError, setImageError] = useState(false);
     return (
       <motion.div
         className="flex-1 relative group"
@@ -283,14 +313,15 @@ export default function Home() {
     );
   };
 
+  // Animated counter component
   const AnimatedCounter = ({ value }: { value: number }) => {
     const [count, setCount] = useState(0);
     useEffect(() => {
       let start = 0;
       const end = value;
       if (start === end) return;
-      let incrementTime = 20;
-      let step = Math.max(1, Math.ceil(end / (1000 / incrementTime)));
+      const incrementTime = 20;
+      const step = Math.max(1, Math.ceil(end / (1000 / incrementTime)));
       const timer = setInterval(() => {
         start += step;
         if (start > end) start = end;
@@ -302,10 +333,10 @@ export default function Home() {
     return <span aria-live="polite">{count.toLocaleString()}</span>;
   };
 
+  // Scroll animations
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 300], [0, 100]);
   const y2 = useTransform(scrollY, [0, 300], [0, -100]);
-  const opacity = useTransform(scrollY, [0, 200], [1, 0]);
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden relative">
@@ -438,13 +469,11 @@ export default function Home() {
                   "Loading..."
                 ) : isAuthenticated ? (
                   <>
-                    Go to Dashboard
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    Go to Dashboard <ArrowRight className="w-5 h-5 ml-2" />
                   </>
                 ) : (
                   <>
-                    Start Free Trial
-                    <UserPlus className="w-5 h-5 ml-2" />
+                    Start Free Trial <UserPlus className="w-5 h-5 ml-2" />
                   </>
                 )}
               </Button>
@@ -456,19 +485,19 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={isAuthenticated ? handleGetStarted : handleLogin}
+                onClick={handleLogin}
                 disabled={isLoading}
                 className="border-accent text-foreground hover:bg-accent/10 px-8 py-6 text-lg backdrop-blur-sm disabled:opacity-50"
               >
                 {isAuthenticated ? (
                   <>
-                    <ArrowRight className="w-5 h-5 mr-2" />
-                    Dashboard
+                    {" "}
+                    <ArrowRight className="w-5 h-5 mr-2" /> Dashboard{" "}
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-5 h-5 mr-2" />
-                    Sign In
+                    {" "}
+                    <LogIn className="w-5 h-5 mr-2" /> Sign In{" "}
                   </>
                 )}
               </Button>
@@ -483,31 +512,51 @@ export default function Home() {
             transition={{ duration: 1, delay: 0.6 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto"
           >
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5, ease: "easeOut" }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="relative group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl blur group-hover:blur-lg transition-all duration-300"></div>
-                <Card className="relative bg-card/60 backdrop-blur-sm rounded-xl p-6 border border-border hover:border-primary transition-all duration-300 shadow-lg">
-                  <CardContent className="p-0 text-center">
-                    <stat.icon className="w-6 h-6 text-primary mb-2 mx-auto" />
-                    <div className="text-3xl font-bold text-foreground mb-1">
-                      <AnimatedCounter value={stat.value} />
-                      {stat.value > 1000 ? "K" : "+"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {stat.label}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+            {dataLoading
+              ? [...Array(4)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <Card className="bg-card/60 backdrop-blur-sm rounded-xl p-6 border border-border">
+                      <CardContent className="p-0 text-center">
+                        <div className="w-6 h-6 bg-primary/20 rounded mb-2 mx-auto"></div>
+                        <div className="h-8 bg-foreground/20 rounded mb-1"></div>
+                        <div className="h-4 bg-muted-foreground/20 rounded"></div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))
+              : stats.map((stat, i) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{
+                      delay: i * 0.1,
+                      duration: 0.5,
+                      ease: "easeOut",
+                    }}
+                    whileHover={{ y: -5, scale: 1.02 }}
+                    className="relative group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl blur group-hover:blur-lg transition-all duration-300"></div>
+                    <Card className="relative bg-card/60 backdrop-blur-sm rounded-xl p-6 border border-border hover:border-primary transition-all duration-300 shadow-lg">
+                      <CardContent className="p-0 text-center">
+                        <stat.icon className="w-6 h-6 text-primary mb-2 mx-auto" />
+                        <div className="text-3xl font-bold text-foreground mb-1">
+                          <AnimatedCounter value={stat.value} />
+                          {stat.value >= 1000
+                            ? "K+"
+                            : stat.value > 0
+                            ? "+"
+                            : ""}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {stat.label}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
           </motion.div>
         </div>
       </section>
@@ -553,6 +602,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How It Works Section */}
       <section
         id="how-it-works"
         className="py-20 px-6 relative bg-gradient-to-r from-primary/5 to-secondary/5"
@@ -566,9 +616,8 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-4">
-              How devOrbit
+              How devOrbit{" "}
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                {" "}
                 Works
               </span>
             </h2>
@@ -628,9 +677,8 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-4">
-              Loved by
+              Loved by{" "}
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                {" "}
                 Developers
               </span>
             </h2>
@@ -646,57 +694,99 @@ export default function Home() {
                 </motion.div>
               ))}
               <span className="text-muted-foreground ml-2 text-lg">
-                4.9/5 from 1,400+ teams
+                {testimonialStats?.displayRating || "5.0/5 from reviews"}
               </span>
             </div>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {testimonials.map((testimonial, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: i * 0.2 }}
-                whileHover={{ y: -8, rotateY: 5 }}
-                className="group relative"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl blur group-hover:blur-lg transition-all duration-300"></div>
-                <Card className="relative bg-card/60 border-border hover:border-primary backdrop-blur-sm transition-all duration-300">
-                  <CardContent className="p-8">
-                    <div className="flex items-center gap-1 mb-4">
-                      {[...Array(testimonial.rating)].map((_, j) => (
-                        <Star
-                          key={j}
-                          className="w-4 h-4 text-primary fill-current"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-foreground mb-6 leading-relaxed text-lg">
-                      "{testimonial.quote}"
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
-                        {testimonial.author
-                          .split(" ")
-                          .map((n: string) => n[0])
-                          .join("")}
+          {dataLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <Card className="bg-card/60 border-border backdrop-blur-sm">
+                    <CardContent className="p-8">
+                      <div className="flex items-center gap-1 mb-4">
+                        {[...Array(5)].map((_, j) => (
+                          <div
+                            key={j}
+                            className="w-4 h-4 bg-primary/20 rounded"
+                          ></div>
+                        ))}
                       </div>
-                      <div>
-                        <div className="text-foreground font-medium text-lg">
-                          {testimonial.author}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {testimonial.role}
+                      <div className="space-y-2 mb-6">
+                        <div className="h-4 bg-foreground/20 rounded"></div>
+                        <div className="h-4 bg-foreground/20 rounded"></div>
+                        <div className="h-4 bg-foreground/20 rounded w-3/4"></div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-primary/20 rounded-full"></div>
+                        <div>
+                          <div className="h-4 bg-foreground/20 rounded w-24 mb-1"></div>
+                          <div className="h-3 bg-muted-foreground/20 rounded w-32"></div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          ) : testimonials.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {testimonials.slice(0, 6).map((testimonial, i) => (
+                <motion.div
+                  key={testimonial._id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: i * 0.2 }}
+                  whileHover={{ y: -8, rotateY: 5 }}
+                  className="group relative"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl blur group-hover:blur-lg transition-all duration-300"></div>
+                  <Card className="relative bg-card/60 border-border hover:border-primary backdrop-blur-sm transition-all duration-300">
+                    <CardContent className="p-8">
+                      <div className="flex items-center gap-1 mb-4">
+                        {[
+                          ...Array(
+                            Math.min(Math.max(testimonial.rating, 1), 5)
+                          ),
+                        ].map((_, j) => (
+                          <Star
+                            key={j}
+                            className="w-4 h-4 text-primary fill-current"
+                          />
+                        ))}
+                      </div>
+                      <p className="text-foreground mb-6 leading-relaxed text-lg">
+                        "{testimonial.quote}"
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                          {testimonial.author
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                        <div>
+                          <div className="text-foreground font-medium text-lg">
+                            {testimonial.author}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {testimonial.role}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">
+              No testimonials available yet. Be the first to share your
+              experience!
+            </p>
+          )}
         </motion.div>
       </section>
 
@@ -728,9 +818,8 @@ export default function Home() {
                   </motion.div>
                 </motion.div>
                 <h2 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-                  Ready to Squash
+                  Ready to Squash{" "}
                   <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                    {" "}
                     Bugs?
                   </span>
                 </h2>
@@ -753,7 +842,7 @@ export default function Home() {
                     >
                       {isAuthenticated
                         ? "Go to Dashboard"
-                        : "Start Your Free Trial"}
+                        : "Start Your Free Trial"}{" "}
                       <Zap className="w-5 h-5 ml-2" />
                     </Button>
                   </motion.div>
@@ -767,8 +856,7 @@ export default function Home() {
                       onClick={handleDemo}
                       className="border-accent text-foreground hover:bg-accent/10 px-8 py-6 text-lg backdrop-blur-sm"
                     >
-                      Schedule Demo
-                      <Play className="w-5 h-5 ml-2" />
+                      Schedule Demo <Play className="w-5 h-5 ml-2" />
                     </Button>
                   </motion.div>
                 </div>

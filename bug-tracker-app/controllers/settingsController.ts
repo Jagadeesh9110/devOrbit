@@ -287,6 +287,68 @@ export const settingsController = {
     }
   },
 
+  // this is an exmaple how we can implement using the stripe;
+  /**
+   *  
+  async getBilling(accessToken: string): Promise<ControllerResponse> {
+  try {
+    const result = await getUserFromToken(accessToken);
+    if (!result) {
+      return { success: false, error: "Unauthorized", status: 401 };
+    }
+    const { user } = result;
+
+    // Fetch Stripe customer data
+    let customer: Stripe.Customer | undefined;
+    if (user.stripeCustomerರೀವಾಡು stripeCustomerId) {
+      customer = await stripe.customers.retrieve(user.stripeCustomerId);
+    }
+
+    // Fetch subscription and invoices
+    const subscription = customer?.subscriptions?.data[0];
+    const invoices = await stripe.invoices.list({ customer: user.stripeCustomerId, limit: 5 });
+
+    return {
+      success: true,
+      data: {
+        plan: subscription
+          ? {
+              name: subscription.plan?.nickname || "Pro",
+              price: `$${(subscription.plan.amount || 0) / 100}`,
+              features: {
+                bugReports: "Unlimited",
+                teamMembers: subscription.plan.metadata.teamMembers || 10,
+                integrations: subscription.plan.metadata.integrations || 5,
+              },
+              nextBillingDate: new Date(subscription.current_period_end * 1000).toISOString(),
+            }
+          : null,
+        billingHistory: invoices.data.map((invoice) => ({
+          id: invoice.id,
+          date: new Date(invoice.created * 1000).toISOString(),
+          amount: `$${(invoice.amount_paid || 0) / 100}`,
+          plan: invoice.lines.data[0]?.plan?.nickname || "Pro",
+          status: invoice.paid ? "Paid" : "Pending",
+          invoice: invoice.number,
+        })),
+        paymentMethod: customer?.default_source
+          ? {
+              id: (customer.default_source as Stripe.Card).id,
+              type: (customer.default_source as Stripe.Card).brand,
+              lastFour: (customer.default_source as Stripe.Card).last4,
+              expiry: `${(customer.default_source as Stripe.Card).exp_month}/${(customer.default_source as Stripe.Card).exp_year}`,
+            }
+          : null,
+      },
+      status: 200,
+    };
+  } catch (error: any) {
+    console.error("getBilling error:", error.message);
+    return { success: false, error: "Internal server error", status: 500 };
+  }
+}
+   */
+
   async updatePassword(
     accessToken: string,
     body: any
@@ -297,6 +359,15 @@ export const settingsController = {
         return { success: false, error: "Unauthorized", status: 401 };
       }
       const { user } = result;
+
+      // Check if user is an OAuth user (no password stored)
+      if (!user.password) {
+        return {
+          success: false,
+          error: "OAuth users cannot update passwords",
+          status: 403,
+        };
+      }
 
       const validatedData = passwordSchema.parse(body);
       const isMatch = await user.comparePassword(validatedData.currentPassword);
