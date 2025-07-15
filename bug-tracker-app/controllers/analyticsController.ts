@@ -101,6 +101,8 @@ export const getStats = async (request: NextRequest) => {
       recommendations: rawTeamInsights.workloadRecommendations,
       trends: rawTeamInsights.productivityTrends,
       predictions: rawTeamInsights.skillGaps,
+      confidence: rawTeamInsights.confidence || 85, // Use confidence from team insights or default
+      generatedAt: new Date(), // Add current timestamp
     };
 
     const stats: AnalyticsStats = {

@@ -52,6 +52,7 @@ export interface IBug extends Document {
   createdAt: Date;
   updatedAt: Date;
   embedding: number[];
+  embeddingUpdatedAt?: Date;
   activities: {
     created: Date;
     updated: Date;
@@ -98,6 +99,7 @@ export interface BugInput {
   createdAt?: Date;
   updatedAt?: Date;
   embedding?: number[];
+  embeddingUpdatedAt?: Date;
 }
 
 const commentSchema = new mongoose.Schema(
@@ -295,6 +297,10 @@ const bugSchema = new mongoose.Schema<IBug>(
       type: [Number], // Array of numbers for the vector
       default: [],
     },
+    embeddingUpdatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -387,6 +393,7 @@ bugSchema.index({ projectId: 1, assigneeId: 1 });
 bugSchema.index({ labels: 1, projectId: 1 });
 bugSchema.index({ createdAt: -1 });
 bugSchema.index({ updatedAt: -1 });
+bugSchema.index({ createdBy: 1, embedding: 1 });
 
 bugSchema.pre<IBug>("save", async function (next) {
   try {
@@ -409,6 +416,7 @@ bugSchema.pre<IBug>("save", async function (next) {
           this._id.toString()
         );
       }
+
       await notificationsController.createNotification(
         this.createdBy.toString(),
         "bug_resolved",
