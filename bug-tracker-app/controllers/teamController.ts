@@ -9,6 +9,54 @@ type TeamMember = {
   userId: mongoose.Types.ObjectId;
   role: "Admin" | "Project Manager" | "Developer" | "Tester";
   joinedAt: Date;
+  workload?: number;
+  assignedBugs?: number;
+  resolvedBugs?: number;
+  avgResolutionTime?: string;
+  specialties?: string[];
+};
+
+export const getUserTeams = async (userId: string) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid user ID");
+    }
+
+    const teams = await Team.find({
+      "members.userId": new mongoose.Types.ObjectId(userId),
+    })
+      .populate({
+        path: "members.userId",
+        select: "name email phone location status skills startDate",
+      })
+      .populate("projects", "name description status")
+      .sort({ createdAt: -1 });
+
+    return teams.map((team) => ({
+      _id: team._id.toString(),
+      name: team.name,
+      description: team.description,
+      members: team.members.map((member: any) => ({
+        userId: member.userId,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        workload: member.workload || 0,
+        assignedBugs: member.assignedBugs || 0,
+        resolvedBugs: member.resolvedBugs || 0,
+        avgResolutionTime: member.avgResolutionTime || "0 days",
+        specialties: member.specialties || [],
+      })),
+      projects: team.projects,
+      createdAt: team.createdAt,
+      updatedAt: team.updatedAt,
+      memberCount: team.members.length,
+      // Add performance metrics using the model method
+      performanceMetrics: team.getPerformanceMetrics(),
+    }));
+  } catch (error: any) {
+    console.error("getUserTeams error:", error.message);
+    throw error;
+  }
 };
 
 export const getTeamMembers = async (teamId: string, userId: string) => {
@@ -17,7 +65,11 @@ export const getTeamMembers = async (teamId: string, userId: string) => {
       throw new Error("Invalid team ID");
     }
 
-    const team = await Team.findById(teamId).select("members");
+    const team = await Team.findById(teamId).populate({
+      path: "members.userId",
+      select: "name email role avatar status skills",
+    });
+
     if (!team) {
       throw new Error("Team not found");
     }
@@ -31,15 +83,21 @@ export const getTeamMembers = async (teamId: string, userId: string) => {
       throw new Error("Forbidden");
     }
 
-    const members = await User.find({
-      _id: { $in: teamMembers.map((m: TeamMember) => m.userId) },
-    }).select("name email role");
-
-    return members.map((member) => ({
-      _id: member._id.toString(),
-      name: member.name,
-      email: member.email,
-      role: member.role,
+    return team.members.map((member: any) => ({
+      _id: member.userId._id.toString(),
+      name: member.userId.name,
+      email: member.userId.email,
+      role: member.role, // Team role, not user role
+      userRole: member.userId.role, // User's general role
+      joinedAt: member.joinedAt,
+      workload: member.workload || 0,
+      assignedBugs: member.assignedBugs || 0,
+      resolvedBugs: member.resolvedBugs || 0,
+      avgResolutionTime: member.avgResolutionTime || "0 days",
+      specialties: member.specialties || [],
+      avatar: member.userId.avatar,
+      status: member.userId.status,
+      skills: member.userId.skills,
     }));
   } catch (error: any) {
     console.error("getTeamMembers error:", error.message);
@@ -49,7 +107,10 @@ export const getTeamMembers = async (teamId: string, userId: string) => {
 
 export const sendInvitation = async (
   teamId: string,
-  data: { email: string; role?: string },
+  data: {
+    email: string;
+    role?: "Admin" | "Project Manager" | "Developer" | "Tester";
+  },
   userId: string
 ) => {
   try {
@@ -77,6 +138,12 @@ export const sendInvitation = async (
     const { email, role = "Developer" } = data;
     if (!email) {
       throw new Error("Email is required");
+    }
+
+    // Validate role
+    const validRoles = ["Admin", "Project Manager", "Developer", "Tester"];
+    if (!validRoles.includes(role)) {
+      throw new Error("Invalid role specified");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -125,7 +192,6 @@ export const sendInvitation = async (
     // Get inviter details
     const inviter = await User.findById(userId).select("name email");
 
-    // Send email
     const inviteLink = `${process.env.NEXT_PUBLIC_BASE_URL}/invite?token=${invitation.token}`;
 
     await sendEmail({
@@ -208,7 +274,7 @@ export const getInvitationByToken = async (token: string) => {
     }
 
     const invitation = await Invitation.findOne({ token })
-      .populate("teamId", "name description")
+      .populate("teamId", "name description memberCount")
       .populate("invitedBy", "name email");
 
     if (!invitation) {
@@ -284,13 +350,23 @@ export const acceptInvitationByToken = async (
       throw new Error("You are already a member of this team");
     }
 
-    // Add user to team
-    team.members.push({
+    // Add user to team with proper member structure
+    const newMember: TeamMember = {
       userId: new mongoose.Types.ObjectId(userId),
-      role: invitation.role,
+      role: invitation.role as
+        | "Admin"
+        | "Project Manager"
+        | "Developer"
+        | "Tester",
       joinedAt: new Date(),
-    });
+      workload: 0,
+      assignedBugs: 0,
+      resolvedBugs: 0,
+      avgResolutionTime: "0 days",
+      specialties: [],
+    };
 
+    team.members.push(newMember);
     await team.save();
 
     // Update invitation status
@@ -330,7 +406,6 @@ export const declineInvitationByToken = async (
       throw new Error("Invitation is no longer valid");
     }
 
-    // Update invitation status
     invitation.status = "declined";
     if (userId) {
       invitation.userId = new mongoose.Types.ObjectId(userId);
@@ -347,7 +422,203 @@ export const declineInvitationByToken = async (
   }
 };
 
-// Clean up expired invitations (utility function)
+// Get team by ID with full details
+export const getTeamById = async (teamId: string, userId: string) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(teamId)) {
+      throw new Error("Invalid team ID");
+    }
+
+    const team = await Team.findById(teamId)
+      .populate({
+        path: "members.userId",
+        select: "name email avatar status skills",
+      })
+      .populate("projects", "name description status createdAt");
+
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    // Check if user is a member
+    const isMember = team.members.some(
+      (member: any) => member.userId._id.toString() === userId
+    );
+    if (!isMember) {
+      throw new Error("Forbidden: You are not a member of this team");
+    }
+
+    return {
+      _id: team._id.toString(),
+      name: team.name,
+      description: team.description,
+      members: team.members.map((member: any) => ({
+        userId: member.userId._id.toString(),
+        name: member.userId.name,
+        email: member.userId.email,
+        avatar: member.userId.avatar,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        workload: member.workload || 0,
+        assignedBugs: member.assignedBugs || 0,
+        resolvedBugs: member.resolvedBugs || 0,
+        avgResolutionTime: member.avgResolutionTime || "0 days",
+        specialties: member.specialties || [],
+        status: member.userId.status,
+        skills: member.userId.skills,
+      })),
+      projects: team.projects,
+      createdAt: team.createdAt,
+      updatedAt: team.updatedAt,
+      memberCount: team.members.length,
+      performanceMetrics: team.getPerformanceMetrics(),
+    };
+  } catch (error: any) {
+    console.error("getTeamById error:", error.message);
+    throw error;
+  }
+};
+
+// Update team member role/details
+export const updateTeamMember = async (
+  teamId: string,
+  memberId: string,
+  updateData: {
+    role?: "Admin" | "Project Manager" | "Developer" | "Tester";
+    workload?: number;
+    specialties?: string[];
+  },
+  userId: string
+) => {
+  try {
+    if (
+      !mongoose.Types.ObjectId.isValid(teamId) ||
+      !mongoose.Types.ObjectId.isValid(memberId)
+    ) {
+      throw new Error("Invalid team ID or member ID");
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    // Check if user has permission to update (Admin or Project Manager)
+    const userMember = team.members.find(
+      (member: any) => member.userId.toString() === userId
+    );
+    if (
+      !userMember ||
+      !["Admin", "Project Manager"].includes(userMember.role)
+    ) {
+      throw new Error(
+        "Forbidden: Only admins and project managers can update members"
+      );
+    }
+
+    // Find the member to update
+    const memberToUpdate = team.members.find(
+      (member: any) => member.userId.toString() === memberId
+    );
+    if (!memberToUpdate) {
+      throw new Error("Member not found in team");
+    }
+
+    // Update member data
+    if (updateData.role) {
+      const validRoles = ["Admin", "Project Manager", "Developer", "Tester"];
+      if (!validRoles.includes(updateData.role)) {
+        throw new Error("Invalid role specified");
+      }
+      memberToUpdate.role = updateData.role;
+    }
+
+    if (updateData.workload !== undefined) {
+      if (updateData.workload < 0 || updateData.workload > 100) {
+        throw new Error("Workload must be between 0 and 100");
+      }
+      memberToUpdate.workload = updateData.workload;
+    }
+
+    if (updateData.specialties) {
+      memberToUpdate.specialties = updateData.specialties;
+    }
+
+    await team.save();
+
+    return {
+      success: true,
+      message: "Member updated successfully",
+      member: memberToUpdate,
+    };
+  } catch (error: any) {
+    console.error("updateTeamMember error:", error.message);
+    throw error;
+  }
+};
+
+// Remove member from team
+export const removeTeamMember = async (
+  teamId: string,
+  memberId: string,
+  userId: string
+) => {
+  try {
+    if (
+      !mongoose.Types.ObjectId.isValid(teamId) ||
+      !mongoose.Types.ObjectId.isValid(memberId)
+    ) {
+      throw new Error("Invalid team ID or member ID");
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    // Check if user has permission to remove (Admin or Project Manager)
+    const userMember = team.members.find(
+      (member: any) => member.userId.toString() === userId
+    );
+    if (
+      !userMember ||
+      !["Admin", "Project Manager"].includes(userMember.role)
+    ) {
+      throw new Error(
+        "Forbidden: Only admins and project managers can remove members"
+      );
+    }
+
+    // Don't allow removing the last admin
+    const adminCount = team.members.filter(
+      (member: any) => member.role === "Admin"
+    ).length;
+    const memberToRemove = team.members.find(
+      (member: any) => member.userId.toString() === memberId
+    );
+
+    if (memberToRemove?.role === "Admin" && adminCount === 1) {
+      throw new Error("Cannot remove the last admin from the team");
+    }
+
+    // Remove member
+    team.members = team.members.filter(
+      (member: any) => member.userId.toString() !== memberId
+    );
+
+    await team.save();
+
+    return {
+      success: true,
+      message: "Member removed successfully",
+      memberCount: team.members.length,
+    };
+  } catch (error: any) {
+    console.error("removeTeamMember error:", error.message);
+    throw error;
+  }
+};
+
 export const cleanupExpiredInvitations = async () => {
   try {
     const result = await Invitation.updateMany(

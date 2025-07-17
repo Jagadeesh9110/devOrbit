@@ -21,7 +21,6 @@ interface LeanNotification {
   bugId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
-  age: string;
   __v: number;
 }
 
@@ -37,6 +36,28 @@ const iconMap: { [key: string]: any } = {
   bug_resolved: CheckCircle,
   mention: UserIcon,
   critical: AlertTriangle,
+};
+
+// Helper function to calculate age from date
+const calculateAge = (date: Date): string => {
+  try {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffHours > 0)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffMinutes > 0)
+      return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
+    return "Just now";
+  } catch (error) {
+    console.error("Error calculating age:", error);
+    return "Recently";
+  }
 };
 
 export const notificationsController = {
@@ -59,24 +80,49 @@ export const notificationsController = {
         return { success: true, data: { notifications: [] }, status: 200 };
       }
 
+      // Use lean() query but don't expect virtual properties
       const notifications = (await Notification.find({ userId: payload.userId })
         .sort({ time: -1 })
         .lean()) as LeanNotification[];
 
+      // Process notifications and add age calculation
+      const processedNotifications = notifications.map((n) => {
+        try {
+          return {
+            id: n._id.toString(),
+            type: n.type,
+            title: n.title || "Notification",
+            message: n.message || "",
+            time: n.time.toISOString(),
+            read: Boolean(n.read),
+            bugId: n.bugId?.toString() || undefined,
+            age: calculateAge(n.time),
+            createdAt: n.createdAt.toISOString(),
+            updatedAt: n.updatedAt.toISOString(),
+            icon: iconMap[n.type] || UserIcon,
+          };
+        } catch (error) {
+          console.error("Error processing notification:", error, n);
+          // Return a safe fallback notification
+          return {
+            id: n._id.toString(),
+            type: n.type,
+            title: "Notification",
+            message: "Error loading notification",
+            time: new Date().toISOString(),
+            read: true,
+            age: "Recently",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            icon: UserIcon,
+          };
+        }
+      });
+
       return {
         success: true,
         data: {
-          notifications: notifications.map((n) => ({
-            id: n._id.toString(),
-            type: n.type,
-            title: n.title,
-            message: n.message,
-            time: n.time.toISOString(),
-            read: n.read,
-            bugId: n.bugId?.toString(),
-            age: n.age,
-            icon: iconMap[n.type] || UserIcon,
-          })),
+          notifications: processedNotifications,
         },
         status: 200,
       };
@@ -96,11 +142,20 @@ export const notificationsController = {
         return { success: false, error: "Unauthorized", status: 401 };
       }
 
+      if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+        return {
+          success: false,
+          error: "Invalid notification ID",
+          status: 400,
+        };
+      }
+
       await connectDB();
       const notification = await Notification.findOne({
         _id: notificationId,
         userId: payload.userId,
       });
+
       if (!notification) {
         return { success: false, error: "Notification not found", status: 404 };
       }
@@ -128,15 +183,23 @@ export const notificationsController = {
       }
 
       await connectDB();
-      const notifications = await Notification.find({
-        userId: payload.userId,
-        read: false,
-      });
-      await Promise.all(notifications.map((n) => n.markAsRead()));
+
+      const result = await Notification.updateMany(
+        {
+          userId: payload.userId,
+          read: false,
+        },
+        {
+          read: true,
+        }
+      );
 
       return {
         success: true,
-        data: { message: "All notifications marked as read" },
+        data: {
+          message: "All notifications marked as read",
+          modifiedCount: result.modifiedCount,
+        },
         status: 200,
       };
     } catch (error: any) {
@@ -153,6 +216,14 @@ export const notificationsController = {
       const payload = verifyToken(accessToken) as TokenPayload | null;
       if (!payload) {
         return { success: false, error: "Unauthorized", status: 401 };
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+        return {
+          success: false,
+          error: "Invalid notification ID",
+          status: 400,
+        };
       }
 
       await connectDB();
@@ -184,6 +255,14 @@ export const notificationsController = {
     bugId?: string
   ): Promise<ControllerResponse> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return { success: false, error: "Invalid user ID", status: 400 };
+      }
+
+      if (bugId && !mongoose.Types.ObjectId.isValid(bugId)) {
+        return { success: false, error: "Invalid bug ID", status: 400 };
+      }
+
       await connectDB();
       const user = await User.findById(userId).select("notificationsEnabled");
       if (!user) {
@@ -205,6 +284,7 @@ export const notificationsController = {
         message,
         bugId: bugId ? new mongoose.Types.ObjectId(bugId) : undefined,
       });
+
       await notification.save();
 
       return {
@@ -217,7 +297,9 @@ export const notificationsController = {
           time: notification.time.toISOString(),
           read: notification.read,
           bugId: notification.bugId?.toString(),
-          age: notification.age,
+          age: calculateAge(notification.time),
+          createdAt: notification.createdAt.toISOString(),
+          updatedAt: notification.updatedAt.toISOString(),
           icon: iconMap[notification.type] || UserIcon,
         },
         status: 201,

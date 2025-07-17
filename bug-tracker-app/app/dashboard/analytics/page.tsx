@@ -126,11 +126,17 @@ const Analytics: React.FC = () => {
       try {
         const [statsRes, trendsRes, priorityRes, teamRes, resolutionRes] =
           await Promise.all([
-            fetchWithAuth(`/api/analytics/stats`),
+            fetchWithAuth(`/api/analytics/stats?timeRange=${timeRange}`),
             fetchWithAuth(`/api/analytics/bug-trends?timeRange=${timeRange}`),
-            fetchWithAuth(`/api/analytics/priority-breakdown`),
-            fetchWithAuth(`/api/analytics/team-performance`),
-            fetchWithAuth(`/api/analytics/resolution-times`),
+            fetchWithAuth(
+              `/api/analytics/priority-breakdown?timeRange=${timeRange}`
+            ),
+            fetchWithAuth(
+              `/api/analytics/team-performance?timeRange=${timeRange}`
+            ),
+            fetchWithAuth(
+              `/api/analytics/resolution-times?timeRange=${timeRange}`
+            ),
           ]);
 
         if (
@@ -140,7 +146,7 @@ const Analytics: React.FC = () => {
           !teamRes.success ||
           !resolutionRes.success
         ) {
-          throw new Error("Failed to fetch analytics data");
+          throw new Error("Failed to fetch one or more analytics data points");
         }
 
         const data: AnalyticsData = {
@@ -156,15 +162,10 @@ const Analytics: React.FC = () => {
         };
 
         setAnalyticsData(data);
-        // Check if there's meaningful data to display
         setHasData(
-          data.totalBugs !== "0" ||
-            data.activeBugs !== 0 ||
-            data.resolvedBugs !== "0" ||
+          Number(data.totalBugs) > 0 ||
             data.trendData.length > 0 ||
-            data.priorityData.length > 0 ||
-            data.teamData.length > 0 ||
-            data.resolutionData.length > 0
+            data.teamData.length > 0
         );
       } catch (err: any) {
         setError(err.message || "Failed to fetch analytics data");
@@ -214,12 +215,22 @@ const Analytics: React.FC = () => {
   const handleExport = async (): Promise<void> => {
     setIsExporting(true);
     try {
-      const { aiService } = await import("@/lib/services/AiService");
-      const report = await aiService.generateIntelligentReport(
-        analyticsData,
-        timeRange
-      );
+      const response = await fetch("/api/analytics/generate-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          analyticsData,
+          timeRange,
+        }),
+      });
 
+      if (!response.ok) {
+        throw new Error("Failed to generate AI report");
+      }
+
+      const report = await response.text();
       const blob = new Blob([report], { type: "text/markdown" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -232,7 +243,7 @@ const Analytics: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Error generating AI report:", error);
+      console.error("Error exporting AI report:", error);
     } finally {
       setIsExporting(false);
     }

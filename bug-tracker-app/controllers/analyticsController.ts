@@ -1,3 +1,5 @@
+// controllers/analyticsController.ts
+
 import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import Bug from "@/models/bugModel";
@@ -5,7 +7,11 @@ import User from "@/models/userModel";
 import { Team } from "@/models/teamModel";
 import connectDB from "@/lib/db/Connect";
 import { getTokenFromCookies, verifyToken } from "@/lib/auth";
-import { aiService, AIAnalyticsData } from "@/lib/services/AiService";
+import {
+  aiService,
+  AIAnalyticsData,
+  AITeamInsights,
+} from "@/lib/services/AiService";
 
 interface BugTrendData {
   name: string;
@@ -36,73 +42,115 @@ interface AnalyticsStats {
   avgResolutionTime: string;
   activeBugs: number;
   resolvedBugs: number;
-  aiInsights: AIAnalyticsData;
+  aiInsights?: AIAnalyticsData;
 }
+
+// Helper to get user's project IDs
+const getUserProjectIds = async (
+  userId: string
+): Promise<mongoose.Types.ObjectId[]> => {
+  const user = await User.findById(userId).select("teamIds");
+
+  if (!user || !user.teamIds || user.teamIds.length === 0) {
+    return [];
+  }
+
+  const teams = await Team.find({ _id: { $in: user.teamIds } }).select(
+    "projects"
+  );
+
+  return teams.flatMap((team) => team.projects);
+};
 
 export const getStats = async (request: NextRequest) => {
   await connectDB();
   const { accessToken } = getTokenFromCookies(request);
   if (!accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const payload = verifyToken(accessToken);
   if (!payload || !payload.userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const totalBugs = await Bug.countDocuments({ createdBy: payload.userId });
-    const activeBugs = await Bug.countDocuments({
-      createdBy: payload.userId,
-      status: { $in: ["Open", "In Progress"] },
-    });
-    const resolvedBugs = await Bug.countDocuments({
-      createdBy: payload.userId,
-      status: "Resolved",
-    });
+    const projectIds = await getUserProjectIds(payload.userId);
 
-    const resolutionTimes = await Bug.aggregate([
-      {
-        $match: {
-          createdBy: new mongoose.Types.ObjectId(payload.userId),
+    if (projectIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          totalBugs: 0,
+          activeBugs: 0,
+          resolvedBugs: 0,
+          avgResolutionTime: "N/A",
+          aiInsights: undefined,
+        },
+      });
+    }
+
+    const [totalBugs, activeBugs, resolvedBugs, resolutionTimes] =
+      await Promise.all([
+        Bug.countDocuments({ projectId: { $in: projectIds } }),
+        Bug.countDocuments({
+          projectId: { $in: projectIds },
+          status: { $in: ["Open", "In Progress"] },
+        }),
+        Bug.countDocuments({
+          projectId: { $in: projectIds },
           status: "Resolved",
-          updatedAt: { $exists: true },
-        },
-      },
-      {
-        $project: {
-          resolutionTime: {
-            $divide: [
-              { $subtract: ["$updatedAt", "$createdAt"] },
-              1000 * 60 * 60 * 24, // Convert to days
-            ],
+        }),
+        Bug.aggregate([
+          {
+            $match: {
+              projectId: { $in: projectIds },
+              status: "Resolved",
+              updatedAt: { $exists: true },
+            },
           },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          avgResolutionTime: { $avg: "$resolutionTime" },
-        },
-      },
-    ]);
+          {
+            $project: {
+              resolutionTime: {
+                $divide: [
+                  { $subtract: ["$updatedAt", "$createdAt"] },
+                  1000 * 60 * 60 * 24,
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avgResolutionTime: { $avg: "$resolutionTime" },
+            },
+          },
+        ]),
+      ]);
 
     const avgResolutionTime = resolutionTimes[0]?.avgResolutionTime
       ? `${resolutionTimes[0].avgResolutionTime.toFixed(1)} days`
       : "N/A";
 
-    const rawTeamInsights = await aiService.generateTeamInsights([
-      { totalBugs, activeBugs, resolvedBugs, avgResolutionTime },
-    ]);
+    // Generate AI Insights and adapt to AIAnalyticsData interface
+    await aiService.initialize();
+    const teamInsights: AITeamInsights = await aiService.generateTeamInsights(
+      payload.userId
+    );
 
     const aiInsights: AIAnalyticsData = {
-      insights: rawTeamInsights.performanceAnalysis,
-      recommendations: rawTeamInsights.workloadRecommendations,
-      trends: rawTeamInsights.productivityTrends,
-      predictions: rawTeamInsights.skillGaps,
-      confidence: rawTeamInsights.confidence || 85, // Use confidence from team insights or default
-      generatedAt: new Date(), // Add current timestamp
+      insights: teamInsights.performanceAnalysis,
+      recommendations: teamInsights.workloadRecommendations,
+      trends: teamInsights.productivityTrends,
+      predictions: teamInsights.skillGaps,
+      confidence: teamInsights.confidence || 85,
+      generatedAt: new Date(),
     };
 
     const stats: AnalyticsStats = {
@@ -137,25 +185,18 @@ export const getBugTrends = async (request: NextRequest) => {
 
   try {
     const timeRange = request.nextUrl.searchParams.get("timeRange") || "30d";
-    let days: number;
-    switch (timeRange) {
-      case "7d":
-        days = 7;
-        break;
-      case "90d":
-        days = 90;
-        break;
-      case "1y":
-        days = 365;
-        break;
-      default:
-        days = 30;
+    const days =
+      { "7d": 7, "90d": 90, "1y": 365 }[timeRange as "7d" | "90d" | "1y"] || 30;
+    const projectIds = await getUserProjectIds(payload.userId);
+
+    if (projectIds.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
-    const trendData = await Bug.aggregate([
+    const trendData: BugTrendData[] = await Bug.aggregate([
       {
         $match: {
-          createdBy: new mongoose.Types.ObjectId(payload.userId),
+          projectId: { $in: projectIds },
           createdAt: {
             $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
           },
@@ -163,9 +204,7 @@ export const getBugTrends = async (request: NextRequest) => {
       },
       {
         $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-          },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
           reported: { $sum: 1 },
           resolved: {
             $sum: { $cond: [{ $eq: ["$status", "Resolved"] }, 1, 0] },
@@ -177,18 +216,8 @@ export const getBugTrends = async (request: NextRequest) => {
           },
         },
       },
-      {
-        $sort: { _id: 1 },
-      },
-      {
-        $project: {
-          name: "$_id",
-          reported: 1,
-          resolved: 1,
-          open: 1,
-          _id: 0,
-        },
-      },
+      { $sort: { _id: 1 } },
+      { $project: { name: "$_id", reported: 1, resolved: 1, open: 1, _id: 0 } },
     ]);
 
     return NextResponse.json({ success: true, data: trendData });
@@ -214,36 +243,27 @@ export const getPriorityBreakdown = async (request: NextRequest) => {
   }
 
   try {
+    const projectIds = await getUserProjectIds(payload.userId);
+    if (projectIds.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
+    }
+
     const priorityData = await Bug.aggregate([
-      {
-        $match: { createdBy: new mongoose.Types.ObjectId(payload.userId) },
-      },
-      {
-        $group: {
-          _id: "$priority",
-          value: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          name: "$_id",
-          value: 1,
-          _id: 0,
-        },
-      },
+      { $match: { projectId: { $in: projectIds } } },
+      { $group: { _id: "$priority", value: { $sum: 1 } } },
+      { $project: { name: "$_id", value: 1, _id: 0 } },
     ]);
 
-    const priorityColors = {
+    const priorityColors: { [key: string]: string } = {
       Critical: "#EF4444",
       High: "#F97316",
       Medium: "#EAB308",
       Low: "#22C55E",
     };
 
-    const formattedData = priorityData.map((item) => ({
+    const formattedData: PriorityData[] = priorityData.map((item) => ({
       ...item,
-      color:
-        priorityColors[item.name as keyof typeof priorityColors] || "#8884d8",
+      color: priorityColors[item.name] || "#8884d8",
     }));
 
     return NextResponse.json({ success: true, data: formattedData });
@@ -273,9 +293,20 @@ export const getTeamPerformance = async (request: NextRequest) => {
   }
 
   try {
-    const teamData = await Bug.aggregate([
+    const projectIds = await getUserProjectIds(payload.userId);
+    if (projectIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: { teamData: [], aiTeamInsights: null },
+      });
+    }
+
+    const teamData: TeamPerformanceData[] = await Bug.aggregate([
       {
-        $match: { createdBy: new mongoose.Types.ObjectId(payload.userId) },
+        $match: {
+          projectId: { $in: projectIds },
+          assigneeId: { $exists: true },
+        },
       },
       {
         $group: {
@@ -298,20 +329,12 @@ export const getTeamPerformance = async (request: NextRequest) => {
           as: "user",
         },
       },
-      {
-        $unwind: "$user",
-      },
-      {
-        $project: {
-          name: "$user.name",
-          resolved: 1,
-          pending: 1,
-          _id: 0,
-        },
-      },
+      { $unwind: "$user" },
+      { $project: { name: "$user.name", resolved: 1, pending: 1, _id: 0 } },
     ]);
 
-    const aiTeamInsights = await aiService.generateTeamInsights(teamData);
+    await aiService.initialize();
+    const aiTeamInsights = await aiService.generateTeamInsights(payload.userId);
 
     return NextResponse.json({
       success: true,
@@ -343,32 +366,34 @@ export const getResolutionTimes = async (request: NextRequest) => {
   }
 
   try {
-    const resolutionData = await Bug.aggregate([
+    const projectIds = await getUserProjectIds(payload.userId);
+
+    if (projectIds.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
+    }
+
+    const resolutionData: ResolutionTimeData[] = await Bug.aggregate([
       {
         $match: {
-          createdBy: new mongoose.Types.ObjectId(payload.userId),
+          projectId: { $in: projectIds },
           status: "Resolved",
           updatedAt: { $exists: true },
         },
       },
       {
         $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m", date: "$updatedAt" },
-          },
+          _id: { $dateToString: { format: "%Y-%m", date: "$updatedAt" } },
           avgTime: {
             $avg: {
               $divide: [
                 { $subtract: ["$updatedAt", "$createdAt"] },
-                1000 * 60 * 60 * 24, // Convert to days
+                1000 * 60 * 60 * 24,
               ],
             },
           },
         },
       },
-      {
-        $sort: { _id: 1 },
-      },
+      { $sort: { _id: 1 } },
       {
         $project: {
           name: "$_id",

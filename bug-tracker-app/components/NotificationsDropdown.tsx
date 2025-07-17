@@ -31,12 +31,75 @@ interface Notification {
   read: boolean;
   bugId?: string;
   age: string;
-  icon: LucideIcon;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface NotificationsDropdownProps {
   className?: string;
 }
+
+// Helper function to get icon based on notification type
+const getNotificationIcon = (type: Notification["type"]): LucideIcon => {
+  switch (type) {
+    case "bug_assigned":
+      return Bug;
+    case "bug_resolved":
+      return CheckCircle;
+    case "mention":
+      return User;
+    case "critical":
+      return AlertTriangle;
+    default:
+      return Bell;
+  }
+};
+
+// Helper function to calculate age if not provided or invalid
+const calculateAge = (time: string): string => {
+  try {
+    const timeDate = new Date(time);
+    if (isNaN(timeDate.getTime())) {
+      return "Recently";
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - timeDate.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffHours > 0)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffMinutes > 0)
+      return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
+    return "Just now";
+  } catch (error) {
+    console.error("Error calculating age:", error);
+    return "Recently";
+  }
+};
+
+// Helper function to safely process notification data
+const processNotification = (notification: any): Notification => {
+  return {
+    id: notification.id || notification._id || Math.random().toString(),
+    type: notification.type || "mention",
+    title: notification.title || "Notification",
+    message: notification.message || "",
+    time:
+      notification.time || notification.createdAt || new Date().toISOString(),
+    read: Boolean(notification.read),
+    bugId: notification.bugId || undefined,
+    age:
+      notification.age ||
+      calculateAge(notification.time || notification.createdAt),
+    createdAt: notification.createdAt || new Date().toISOString(),
+    updatedAt: notification.updatedAt || new Date().toISOString(),
+  };
+};
 
 export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   className,
@@ -50,29 +113,74 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
         const response = await fetch("/api/user/notifications", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
           credentials: "include",
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to fetch notifications");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `HTTP ${response.status}: ${response.statusText}`
+          );
         }
 
-        const { success, data, error } = await response.json();
+        const { success, data, error: apiError } = await response.json();
+
         if (!success) {
-          throw new Error(error || "Failed to fetch notifications");
+          throw new Error(apiError || "Failed to fetch notifications");
         }
 
-        setNotifications(data.notifications || []);
-        setUnreadCount(
-          data.notifications.filter((n: Notification) => !n.read).length
+        // Safely process notifications
+        const rawNotifications = data?.notifications || [];
+        const processedNotifications = rawNotifications.map(
+          (notification: any) => {
+            try {
+              return processNotification(notification);
+            } catch (err) {
+              console.error(
+                "Error processing notification:",
+                err,
+                notification
+              );
+              // Return a safe fallback notification
+              return {
+                id:
+                  notification.id ||
+                  notification._id ||
+                  Math.random().toString(),
+                type: "mention" as const,
+                title: "Notification",
+                message: "Error loading notification",
+                time: new Date().toISOString(),
+                read: true,
+                age: "Recently",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+            }
+          }
         );
-        setError(null);
+
+        setNotifications(processedNotifications);
+        setUnreadCount(
+          processedNotifications.filter((n: Notification) => !n.read).length
+        );
       } catch (err: any) {
-        console.error("Error fetching notifications:", err.message);
-        setError(err.message);
-        if (err.message.includes("Unauthorized")) {
+        console.error("Error fetching notifications:", err);
+        setError(err.message || "Failed to load notifications");
+
+        // Handle authentication errors
+        if (
+          err.message.includes("Unauthorized") ||
+          err.message.includes("401")
+        ) {
           router.push("/auth/login");
         }
       } finally {
@@ -87,25 +195,27 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     try {
       const response = await fetch(`/api/user/notifications/${id}/read`, {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.error || "Failed to mark notification as read"
         );
       }
 
-      setNotifications(
-        notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+      // Update local state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
-      setUnreadCount(
-        notifications.filter((n) => n.id !== id && !n.read).length
-      );
+      setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
     } catch (err: any) {
-      console.error("Error marking notification as read:", err.message);
-      setError(err.message);
+      console.error("Error marking notification as read:", err);
+      setError(err.message || "Failed to mark as read");
     }
   };
 
@@ -113,21 +223,27 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     try {
       const response = await fetch("/api/user/notifications/read", {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
           errorData.error || "Failed to mark all notifications as read"
         );
       }
 
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+      // Update local state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((n) => ({ ...n, read: true }))
+      );
       setUnreadCount(0);
     } catch (err: any) {
-      console.error("Error marking all notifications as read:", err.message);
-      setError(err.message);
+      console.error("Error marking all notifications as read:", err);
+      setError(err.message || "Failed to mark all as read");
     }
   };
 
@@ -135,21 +251,30 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     try {
       const response = await fetch(`/api/user/notifications/${id}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to delete notification");
       }
 
-      setNotifications(notifications.filter((n) => n.id !== id));
-      setUnreadCount(
-        notifications.filter((n) => n.id !== id && !n.read).length
+      // Update local state
+      const notificationToRemove = notifications.find((n) => n.id === id);
+      setNotifications((prevNotifications) =>
+        prevNotifications.filter((n) => n.id !== id)
       );
+
+      // Update unread count if the removed notification was unread
+      if (notificationToRemove && !notificationToRemove.read) {
+        setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
+      }
     } catch (err: any) {
-      console.error("Error deleting notification:", err.message);
-      setError(err.message);
+      console.error("Error deleting notification:", err);
+      setError(err.message || "Failed to delete notification");
     }
   };
 
@@ -169,9 +294,18 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   };
 
   const handleNotificationClick = (notification: Notification): void => {
-    markAsRead(notification.id);
-    if (notification.bugId) {
-      router.push(`/bugs/${notification.bugId}`);
+    try {
+      // Mark as read first
+      if (!notification.read) {
+        markAsRead(notification.id);
+      }
+
+      // Navigate to bug if bugId exists and is valid
+      if (notification.bugId && notification.bugId.trim() !== "") {
+        router.push(`/bugs/${notification.bugId}`);
+      }
+    } catch (err) {
+      console.error("Error handling notification click:", err);
     }
   };
 
@@ -212,6 +346,21 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           <span>Project milestones</span>
         </div>
       </div>
+    </div>
+  );
+
+  const ErrorState = ({ message }: { message: string }) => (
+    <div className="p-4 text-center bg-white dark:bg-slate-900">
+      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-500" />
+      <p className="text-sm text-red-600 dark:text-red-400 mb-2">{message}</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => window.location.reload()}
+        className="text-xs"
+      >
+        Retry
+      </Button>
     </div>
   );
 
@@ -267,9 +416,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
         sideOffset={5}
       >
         {error ? (
-          <div className="p-4 text-center text-sm text-red-600 bg-white dark:bg-slate-900">
-            {error}
-          </div>
+          <ErrorState message={error} />
         ) : !hasNotifications ? (
           <EmptyNotificationsState />
         ) : (
@@ -294,7 +441,10 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
 
             <div className="max-h-80 overflow-y-auto bg-white dark:bg-slate-900">
               {notifications.map((notification) => {
-                const IconComponent = notification.icon;
+                const IconComponent = getNotificationIcon(notification.type);
+                const displayAge =
+                  notification.age || calculateAge(notification.time);
+
                 return (
                   <div
                     key={notification.id}
@@ -331,7 +481,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                           {notification.message}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-500">
-                          {notification.age}
+                          {displayAge}
                         </p>
                       </div>
                       {!notification.read && (
@@ -349,6 +499,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                 variant="ghost"
                 size="sm"
                 className="w-full text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
+                onClick={() => router.push("/notifications")}
               >
                 View all notifications
               </Button>
