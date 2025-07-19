@@ -35,7 +35,9 @@ const LoginForm: React.FC = () => {
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
-      setSuccessMessage("Registration successful! Please log in.");
+      setSuccessMessage(
+        "Registration successful! Please verify your email to log in."
+      );
     } else if (searchParams.get("verified") === "true") {
       setSuccessMessage("Email verified successfully! You can now log in.");
     } else if (searchParams.get("error")) {

@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
       query.createdBy = userId;
     }
 
-    // Find bugs that need embeddings
     const bugs = await BugModel.find(query)
       .select("_id title description")
       .limit(batchSize * 10); // Get more than batch size for processing
