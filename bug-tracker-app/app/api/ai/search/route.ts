@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -38,8 +39,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    await aiService.initialize();
 
     // Use AiService for smart search with userId
     const searchResult = await aiService.searchWithAI(query, payload.userId);

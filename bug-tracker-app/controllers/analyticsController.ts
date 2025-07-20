@@ -139,7 +139,6 @@ export const getStats = async (request: NextRequest) => {
       : "N/A";
 
     // Generate AI Insights and adapt to AIAnalyticsData interface
-    await aiService.initialize();
     const teamInsights: AITeamInsights = await aiService.generateTeamInsights(
       payload.userId
     );
@@ -333,7 +332,6 @@ export const getTeamPerformance = async (request: NextRequest) => {
       { $project: { name: "$user.name", resolved: 1, pending: 1, _id: 0 } },
     ]);
 
-    await aiService.initialize();
     const aiTeamInsights = await aiService.generateTeamInsights(payload.userId);
 
     return NextResponse.json({

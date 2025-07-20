@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // Add useRouter for redirect
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Search, Sparkles, Loader2 } from "lucide-react";
 import { aiService, AISearchResult } from "@/lib/services/AiService";
+import { TokenPayload } from "@/lib/auth"; // Import TokenPayload type
 
 interface SearchBarProps {
   value: string;
@@ -20,43 +22,55 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = "Search with AI...",
   onAISearch,
 }) => {
+  const router = useRouter(); // Initialize router
   const [isAISearching, setIsAISearching] = useState<boolean>(false);
   const [aiSuggestions, setAISuggestions] = useState<string[]>([]);
   const [searchConfidence, setSearchConfidence] = useState<number | null>(null);
+  const [payload, setPayload] = useState<TokenPayload | null>(null); // State for payload
+  const [authError, setAuthError] = useState<string | null>(null); // State for auth errors
+
+  // Fetch payload on mount
+  useEffect(() => {
+    const fetchPayload = async () => {
+      try {
+        const response = await fetch("/api/auth/payload", {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        setPayload(data.payload);
+      } catch (error: any) {
+        console.error("Error fetching payload:", error.message);
+        setAuthError("Authentication failed. Please log in again.");
+        router.push("/auth/login");
+      }
+    };
+
+    fetchPayload();
+  }, [router]);
 
   const handleAISearch = async (): Promise<void> => {
-    if (!value.trim()) return;
+    if (!value.trim() || !payload?.userId) {
+      console.error("Missing query or userId");
+      if (!payload?.userId) {
+        setAuthError("Authentication required for AI search");
+        router.push("/auth/login");
+      }
+      return;
+    }
 
     setIsAISearching(true);
     console.log("Performing AI-powered search...");
 
     try {
-      // Mock data for AI search
-      const mockData = [
-        {
-          id: 1,
-          title: "Login bug",
-          priority: "critical",
-          assignee: "John Doe",
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        },
-        {
-          id: 2,
-          title: "UI issue",
-          priority: "high",
-          assignee: "Jane Smith",
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        },
-        {
-          id: 3,
-          title: "Performance problem",
-          priority: "medium",
-          assignee: "Alice Johnson",
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        },
-      ];
-
-      const searchResult: AISearchResult = await aiService.searchWithAI(value);
+      const searchResult: AISearchResult = await aiService.searchWithAI(
+        value,
+        payload.userId,
+        { limit: 10, threshold: 0.3 }
+      );
 
       setSearchConfidence(searchResult.confidence);
       setAISuggestions(searchResult.suggestions.slice(0, 3));
@@ -93,6 +107,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   }, [value]);
 
+  if (authError) {
+    return <div className="text-red-500 text-center">{authError}</div>;
+  }
+
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -110,7 +128,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           />
           <Button
             onClick={handleAISearch}
-            disabled={isAISearching || !value.trim()}
+            disabled={isAISearching || !value.trim() || !payload?.userId}
             size="sm"
             className="absolute right-1 h-8 bg-accent-500 hover:bg-accent-600 text-white"
           >
@@ -122,7 +140,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           </Button>
         </div>
 
-        {searchConfidence && (
+        {searchConfidence !== null && (
           <div className="absolute top-full left-0 mt-1 z-10">
             <Badge variant="outline" className="text-xs">
               AI Confidence: {Math.round(searchConfidence * 100)}%
@@ -142,9 +160,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               <button
                 key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="block w-full text-left text-sm text-slate-700 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                className="block w-full text-left text-sm text-slate-7
+System: 00 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
-                &quot;{suggestion}&quot;
+                "{suggestion}"
               </button>
             ))}
           </div>
@@ -152,11 +171,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       )}
 
       <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400">
-        <span>Try: &quot;critical bugs last week&quot;</span>
+        <span>Try: "critical bugs last week"</span>
         <span>•</span>
-        <span>&quot;assigned to John&quot;</span>
+        <span>"assigned to John"</span>
         <span>•</span>
-        <span>&quot;frontend issues&quot;</span>
+        <span>"frontend issues"</span>
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import connectDB from "@/lib/db/Connect";
 import { getTokenFromCookies, verifyToken } from "@/lib/auth";
 import { aiService } from "@/lib/services/AiService";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
@@ -36,7 +38,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await aiService.initialize();
     const report = await aiService.generateIntelligentReport(
       analyticsData,
       timeRange,

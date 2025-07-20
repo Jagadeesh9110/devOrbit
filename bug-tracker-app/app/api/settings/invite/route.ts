@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { settingsController } from "@/controllers/settingsController";
 import Invitation from "@/models/invitationModel";

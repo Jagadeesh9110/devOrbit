@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db/Connect";
 import Bug from "@/models/bugModel";

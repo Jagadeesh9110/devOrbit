@@ -4,6 +4,8 @@ import connectDB from "@/lib/db/Connect";
 import { Team } from "@/models/teamModel";
 import User from "@/models/userModel";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     await connectDB();

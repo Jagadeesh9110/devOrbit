@@ -97,7 +97,7 @@ export const createBug = async (request: NextRequest, userId: string) => {
     // Optional AI Tagging/Assignment
     let aiAnalysis = null;
     try {
-      aiAnalysis = await aiService.analyzeBug(data);
+      aiAnalysis = await aiService.analyzeBug(data, userId);
       if (aiAnalysis) {
         data.labels = [...(data.labels || []), ...aiAnalysis.tags];
         if (

@@ -42,7 +42,6 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
       type: String,
       enum: ["active", "planning", "completed", "on-hold"],
       default: "planning",
-      index: true,
     },
     team: [
       {
@@ -111,6 +110,8 @@ const ProjectSchema: Schema = new Schema<ProjectInt>(
 
 ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ "teamMembers.userId": 1 });
+ProjectSchema.index({ priority: 1 });
+ProjectSchema.index({ tags: 1 });
 
 ProjectSchema.virtual("memberCount").get(function (this: ProjectInt) {
   return this.teamMembers.length;

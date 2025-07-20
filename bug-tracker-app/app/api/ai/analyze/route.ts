@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -37,9 +38,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Initialize AI service if not already done
-    await aiService.initialize();
 
     // Create bug data object for analysis
     const bugData = {

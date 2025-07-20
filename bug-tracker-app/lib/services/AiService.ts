@@ -1,4 +1,5 @@
-// lib/services/AiService.ts - Production-Ready Version
+// lib/services/AiService.ts - Fully Updated and Optimized
+
 import { getFeatureExtractor } from "@/lib/ai/featureExtractor";
 import connectDB from "@/lib/db/Connect";
 import BugModel from "@/models/bugModel";
@@ -47,36 +48,31 @@ export interface AITeamInsights {
   dataPoints: number;
 }
 
-// Enhanced caching with TTL, size limits, and memory management
 class AICache {
   private cache: Map<
     string,
     { data: any; timestamp: number; ttl: number; size: number }
   > = new Map();
-  private maxSize: number = 100; // Max cache entries
-  private maxMemory: number = 50 * 1024 * 1024; // 50MB max memory
+  private maxSize: number = 100;
+  private maxMemory: number = 50 * 1024 * 1024;
   private currentMemory: number = 0;
 
   set(key: string, data: any, ttlMinutes: number = 30): boolean {
     try {
       const dataString = JSON.stringify(data);
       const dataSize = new Blob([dataString]).size;
-
-      // Check memory and size limits
       if (
         this.currentMemory + dataSize > this.maxMemory ||
         this.cache.size >= this.maxSize
       ) {
         this.evictLRU();
       }
-
       this.cache.set(key, {
         data,
         timestamp: Date.now(),
         ttl: ttlMinutes * 60 * 1000,
         size: dataSize,
       });
-
       this.currentMemory += dataSize;
       return true;
     } catch (error) {
@@ -89,13 +85,11 @@ class AICache {
     try {
       const cached = this.cache.get(key);
       if (!cached) return null;
-
       if (Date.now() - cached.timestamp > cached.ttl) {
         this.currentMemory -= cached.size;
         this.cache.delete(key);
         return null;
       }
-
       return cached.data;
     } catch (error) {
       console.error("Cache get error:", error);
@@ -150,8 +144,13 @@ class AICache {
 export class AIService {
   private static instance: AIService;
   private cache = new AICache();
-  private isInitialized = false;
   private featureExtractor: any = null;
+
+  // Changed: Replaced `isInitialized` with a promise to manage state.
+  private initializationPromise: Promise<boolean> | null = null;
+
+  // Changed: Constructor is now private to enforce singleton pattern.
+  private constructor() {}
 
   static getInstance(): AIService {
     if (!AIService.instance) {
@@ -160,18 +159,25 @@ export class AIService {
     return AIService.instance;
   }
 
-  async initialize(): Promise<boolean> {
-    if (this.isInitialized) return true;
+  // Changed: New private method to handle lazy, one-time initialization.
+  private async ensureInitialized(): Promise<boolean> {
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initialize();
+    }
+    return this.initializationPromise;
+  }
 
+  // Changed: Core `initialize` logic is now a private method.
+  private async initialize(): Promise<boolean> {
     try {
+      console.log("AI Service: Starting one-time initialization...");
       await connectDB();
       this.featureExtractor = await getFeatureExtractor();
-      this.isInitialized = true;
-      console.log("AI Service initialized successfully");
+      console.log("AI Service has been successfully initialized.");
       return true;
     } catch (error) {
       console.error("AI Service initialization failed:", error);
-      this.isInitialized = false;
+      this.initializationPromise = null; // Allow retry on next call
       return false;
     }
   }
@@ -179,10 +185,15 @@ export class AIService {
   // ========== Embedding Management ==========
   async generateEmbedding(text: string): Promise<number[] | null> {
     try {
-      await this.initialize();
-      if (!this.featureExtractor)
-        throw new Error("Feature extractor not initialized");
-      return Array.from((await this.featureExtractor(text))[0].data);
+      // Changed: All public methods now call `ensureInitialized`.
+      if (!(await this.ensureInitialized()) || !this.featureExtractor) {
+        throw new Error("Feature extractor not initialized.");
+      }
+      const embedding = await this.featureExtractor(text, {
+        pooling: "mean",
+        normalize: true,
+      });
+      return Array.from(embedding.data);
     } catch (error) {
       console.error("Embedding generation error:", error);
       return null;
@@ -208,8 +219,10 @@ export class AIService {
     }
 
     try {
-      if (!(await this.initialize()))
+      // Changed: Using the robust, self-managing initialization.
+      if (!(await this.ensureInitialized())) {
         throw new Error("AI Service not initialized");
+      }
 
       const enhancedData = await this.getEnhancedAnalyticsData(
         userId,
@@ -283,8 +296,10 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
 
     try {
-      if (!(await this.initialize()))
+      // Changed: Using the robust, self-managing initialization.
+      if (!(await this.ensureInitialized())) {
         throw new Error("AI Service not initialized");
+      }
 
       const queryVector = await this.generateEmbedding(query);
       if (!queryVector) throw new Error("Failed to generate query embedding");
@@ -384,8 +399,10 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
 
     try {
-      if (!(await this.initialize()))
+      // Changed: Using the robust, self-managing initialization.
+      if (!(await this.ensureInitialized())) {
         throw new Error("AI Service not initialized");
+      }
 
       const duplicates = await this.findDuplicateBugs(
         bugData.description,
@@ -442,8 +459,10 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
 
     try {
-      if (!(await this.initialize()))
+      // Changed: Using the robust, self-managing initialization.
+      if (!(await this.ensureInitialized())) {
         throw new Error("AI Service not initialized");
+      }
 
       const teamData = await this.getTeamData(userId, timeRange);
       const performanceAnalysis = await this.generatePerformanceAnalysis(
@@ -471,14 +490,13 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
   }
 
-  // ========== Private Helper Methods ==========
+  // ========== Private Helper Methods (No changes needed below) ==========
   private async getEnhancedAnalyticsData(
     userId: string,
     timeRange: string
   ): Promise<any> {
     try {
       const dateRange = this.parseTimeRange(timeRange);
-
       const [
         totalBugs,
         resolvedBugs,
@@ -503,7 +521,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         this.getAverageResolutionTime(userId, dateRange),
         this.getWeeklyBugCounts(userId, dateRange),
       ]);
-
       return {
         totalBugs,
         resolved: resolvedBugs,
@@ -590,7 +607,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
       const severity = this.predictSeverity(bugData);
       const tags = this.generateTags(bugData);
       const description = bugData.description?.toLowerCase() || "";
-
       if (tags.includes("frontend") && description.includes("ui")) {
         return "Check CSS styling, component rendering, and responsive design patterns.";
       }
@@ -613,7 +629,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private computeCosineSimilarity(vecA: number[], vecB: number[]): number {
     try {
       if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
-
       const dotProduct = vecA.reduce((sum, val, i) => sum + val * vecB[i], 0);
       const magnitudeA = Math.sqrt(
         vecA.reduce((sum, val) => sum + val * val, 0)
@@ -643,7 +658,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     try {
       const end = new Date();
       const start = new Date();
-
       if (timeRange.includes("d")) {
         const days = parseInt(timeRange.replace("d", ""));
         start.setDate(end.getDate() - days);
@@ -654,9 +668,8 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         const months = parseInt(timeRange.replace("m", ""));
         start.setMonth(end.getMonth() - months);
       } else {
-        start.setDate(end.getDate() - 30); // Default to 30 days
+        start.setDate(end.getDate() - 30);
       }
-
       return { start, end };
     } catch (error) {
       console.error("Time range parsing error:", error);
@@ -678,19 +691,15 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         createdAt: { $gte: dateRange.start, $lte: dateRange.end },
         resolvedAt: { $exists: true },
       }).select("createdAt resolvedAt");
-
       if (resolvedBugs.length === 0) return "N/A";
-
       const totalTime = resolvedBugs.reduce((sum, bug) => {
         const resolutionTime =
           new Date(bug.resolvedAt).getTime() -
           new Date(bug.createdAt).getTime();
         return sum + resolutionTime;
       }, 0);
-
       const avgTimeMs = totalTime / resolvedBugs.length;
       const avgTimeHours = avgTimeMs / (1000 * 60 * 60);
-
       return avgTimeHours > 24
         ? `${Math.round(avgTimeHours / 24)} days`
         : `${Math.round(avgTimeHours)} hours`;
@@ -709,7 +718,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         (dateRange.end - dateRange.start) / (7 * 24 * 60 * 60 * 1000)
       );
       const weeklyCounts: number[] = [];
-
       for (let i = 0; i < weeks; i++) {
         const weekStart = new Date(
           dateRange.start.getTime() + i * 7 * 24 * 60 * 60 * 1000
@@ -721,7 +729,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         });
         weeklyCounts.push(count);
       }
-
       return weeklyCounts;
     } catch (error) {
       console.error("Error calculating weekly bug counts:", error);
@@ -729,12 +736,10 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
   }
 
-  // ========== Enhanced Helper Methods ==========
   private async analyzeMetricsAdvanced(data: any): Promise<string[]> {
     try {
       const insights: string[] = [];
       const resolutionRate = this.calculateResolutionRate(data);
-
       if (resolutionRate > 80) {
         insights.push(
           `Excellent resolution rate of ${resolutionRate}% indicates strong performance`
@@ -744,7 +749,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           `Resolution rate of ${resolutionRate}% suggests need for process improvements`
         );
       }
-
       if (data.criticalIssues > 0) {
         const criticalRatio = (data.criticalIssues / data.totalBugs) * 100;
         insights.push(
@@ -753,7 +757,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           )}% of bugs are critical - requires immediate attention`
         );
       }
-
       if (data.weeklyBugs?.length > 1) {
         const trend = this.calculateTrend(data.weeklyBugs);
         insights.push(
@@ -762,7 +765,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           ).toFixed(1)}%`
         );
       }
-
       return insights;
     } catch (error) {
       console.error("Error analyzing metrics:", error);
@@ -773,7 +775,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private async generateRecommendationsAdvanced(data: any): Promise<string[]> {
     try {
       const recommendations: string[] = [];
-
       if (
         data.avgResolutionTime &&
         this.parseTimeToHours(data.avgResolutionTime) > 48
@@ -782,13 +783,11 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           "Implement priority triage system to reduce resolution time"
         );
       }
-
       if (data.criticalIssues > 3) {
         recommendations.push(
           "Implement automated testing to catch critical issues earlier"
         );
       }
-
       if (
         data.weeklyBugs?.length > 1 &&
         this.calculateTrend(data.weeklyBugs) > 10
@@ -797,7 +796,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           "Investigate root causes for increasing bug reports"
         );
       }
-
       return recommendations;
     } catch (error) {
       console.error("Error generating recommendations:", error);
@@ -808,11 +806,9 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private async generateTrendAnalysisAdvanced(data: any): Promise<string[]> {
     try {
       const trends: string[] = [];
-
       trends.push(`• Total bugs processed: ${data.totalBugs || 0}`);
       trends.push(`• Resolution rate: ${this.calculateResolutionRate(data)}%`);
       trends.push(`• Critical issues: ${data.criticalIssues || 0}`);
-
       if (data.weeklyBugs?.length > 1) {
         const trend = this.calculateTrend(data.weeklyBugs);
         trends.push(
@@ -821,7 +817,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           ).toFixed(1)}%)`
         );
       }
-
       return trends;
     } catch (error) {
       console.error("Error generating trend analysis:", error);
@@ -832,7 +827,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private async generatePredictions(data: any): Promise<string[]> {
     try {
       const predictions: string[] = [];
-
       if (data.weeklyBugs?.length >= 3) {
         const trend = this.calculateTrend(data.weeklyBugs);
         const lastWeek = data.weeklyBugs[data.weeklyBugs.length - 1];
@@ -841,7 +835,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           `Expected ${Math.round(predicted)} bugs next week based on trends`
         );
       }
-
       if (data.avgResolutionTime) {
         const hours = this.parseTimeToHours(data.avgResolutionTime);
         if (hours > 0) {
@@ -853,7 +846,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           );
         }
       }
-
       return predictions;
     } catch (error) {
       console.error("Error generating predictions:", error);
@@ -867,29 +859,24 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   ): string[] {
     try {
       const suggestions: string[] = [];
-
       if (query.toLowerCase().includes("critical")) {
         suggestions.push("Show all critical bugs from this month");
       }
       if (query.toLowerCase().includes("frontend")) {
         suggestions.push("Frontend bugs with high priority");
       }
-
       if (results.length > 0) {
         const commonComponents = Array.from(
           new Set(results.map((r) => r.component).filter(Boolean))
         );
-
         commonComponents.slice(0, 2).forEach((component) => {
           suggestions.push(`More bugs in ${component} component`);
         });
-
         const commonTags = this.extractCommonTags(results);
         commonTags.slice(0, 2).forEach((tag) => {
           suggestions.push(`Bugs tagged with ${tag}`);
         });
       }
-
       return suggestions.slice(0, 4);
     } catch (error) {
       console.error("Error generating search suggestions:", error);
@@ -900,12 +887,10 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private calculateAnalysisConfidence(analysis: any): number {
     try {
       let confidence = 50;
-
       if (analysis.duplicates?.length > 0) confidence += 20;
       if (analysis.tags?.length > 0) confidence += 15;
       if (analysis.severity !== "medium") confidence += 15;
       if (analysis.relatedBugs?.length > 0) confidence += 10;
-
       return Math.min(confidence, 100);
     } catch (error) {
       console.error("Error calculating analysis confidence:", error);
@@ -916,7 +901,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private generateReasoningExplanation(bugData: any, analysis: any): string[] {
     try {
       const reasoning: string[] = [];
-
       if (analysis.severity === "high") {
         reasoning.push(
           "High severity assigned due to critical keywords in description"
@@ -937,7 +921,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           `Identified ${analysis.relatedBugs.length} related bugs based on component/tags`
         );
       }
-
       return reasoning;
     } catch (error) {
       console.error("Error generating reasoning explanation:", error);
@@ -950,7 +933,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   ): Promise<string[]> {
     try {
       const analysis: string[] = [];
-
       if (teamData.length > 0) {
         const topPerformer = teamData.reduce((best, current) =>
           (current.resolvedBugs || 0) > (best.resolvedBugs || 0)
@@ -962,7 +944,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
             `${topPerformer.name} leads with ${topPerformer.resolvedBugs} resolved bugs`
           );
         }
-
         const avgResolved =
           teamData.reduce(
             (sum, member) => sum + (member.resolvedBugs || 0),
@@ -972,7 +953,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           `Team average: ${avgResolved.toFixed(1)} bugs resolved per member`
         );
       }
-
       return analysis;
     } catch (error) {
       console.error("Error generating performance analysis:", error);
@@ -987,14 +967,12 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   ): Promise<string[]> {
     try {
       const recommendations: string[] = [];
-
       const overloaded = teamData.filter(
         (member) => (member.assignedBugs || 0) > 10
       );
       const underloaded = teamData.filter(
         (member) => (member.assignedBugs || 0) < 3
       );
-
       if (overloaded.length > 0 && underloaded.length > 0) {
         recommendations.push(
           `Redistribute workload from ${overloaded
@@ -1006,7 +984,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           `Reduce workload for: ${overloaded.map((m) => m.name).join(", ")}`
         );
       }
-
       return recommendations;
     } catch (error) {
       console.error("Error generating workload recommendations:", error);
@@ -1019,7 +996,11 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private async identifySkillGaps(teamData: any[]): Promise<string[]> {
     try {
       const skillGaps: string[] = [];
-
+      if (!teamData || teamData.length === 0 || !teamData[0]?.userId) {
+        // Add a guard clause for empty or invalid teamData
+        skillGaps.push("Not enough data to identify skill gaps.");
+        return skillGaps;
+      }
       const bugTypes = await BugModel.aggregate([
         {
           $match: {
@@ -1032,7 +1013,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         { $sort: { count: -1 } },
         { $limit: 3 },
       ]);
-
       if (bugTypes.length > 0) {
         bugTypes.forEach((type) => {
           skillGaps.push(
@@ -1044,7 +1024,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           "Consider training in automated testing and performance optimization"
         );
       }
-
       return skillGaps;
     } catch (error) {
       console.error("Error identifying skill gaps:", error);
@@ -1055,7 +1034,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
   private async analyzeProductivityTrends(teamData: any[]): Promise<string[]> {
     try {
       const trends: string[] = [];
-
       if (teamData.length > 0) {
         const avgResolutionRate =
           teamData.reduce(
@@ -1065,14 +1043,12 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
         trends.push(
           `Average resolution rate: ${avgResolutionRate.toFixed(1)}%`
         );
-
         const totalBugs = teamData.reduce(
           (sum, member) => sum + (member.assignedBugs || 0),
           0
         );
         trends.push(`Total bugs assigned: ${totalBugs}`);
       }
-
       return trends;
     } catch (error) {
       console.error("Error analyzing productivity trends:", error);
@@ -1093,7 +1069,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
             : best,
         { name: "N/A", resolvedBugs: 0 }
       );
-
       return `
 - Most Active: ${topPerformer.name}
 - Resolution Rate: ${this.calculateResolutionRate(data)}%
@@ -1146,7 +1121,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
           },
         },
       ]);
-
       return teamMembers.length > 0
         ? teamMembers
         : [
@@ -1172,7 +1146,6 @@ ${await this.generateTeamPerformanceSection(combinedData, userId)}
     }
   }
 
-  // ========== Utility Methods ==========
   private calculateResolutionRate(data: any): number {
     try {
       if (!data.total || data.total === 0) return 0;
@@ -1507,4 +1480,5 @@ Time Range: ${timeRange}
   }
 }
 
+// Changed: Export the single, shared instance for use across your app.
 export const aiService = AIService.getInstance();

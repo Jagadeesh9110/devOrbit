@@ -44,7 +44,7 @@ import {
   Plus,
   Send,
 } from "lucide-react";
-import { fetchWithAuth } from "@/lib/auth";
+import { fetchWithAuth, TokenPayload } from "@/lib/auth";
 import { aiService, AITeamInsights } from "@/lib/services/AiService";
 
 interface TeamMember {
@@ -81,6 +81,8 @@ const TeamPage: React.FC = () => {
   const [inviteTeamId, setInviteTeamId] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [payload, setPayload] = useState<TokenPayload | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const fetchTeamMembersAndTeams = async () => {
     setLoading(true);
@@ -127,10 +129,33 @@ const TeamPage: React.FC = () => {
     }
   };
 
+  const fetchPayload = async () => {
+    try {
+      const response = await fetch("/api/auth/payload", {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      setPayload(data.payload);
+    } catch (error: any) {
+      console.error("Error fetching payload:", error.message);
+      setAuthError("Authentication failed. Please log in again.");
+      router.push("/auth/login");
+    }
+  };
+
   const loadAIInsights = async () => {
+    if (!payload || !payload.userId) {
+      console.error("No user payload found");
+      setAuthError("Authentication required for AI insights");
+      return;
+    }
     setLoadingInsights(true);
     try {
-      const insights = await aiService.generateTeamInsights(teamMembers);
+      const insights = await aiService.generateTeamInsights(payload.userId);
       setAIInsights(insights);
     } catch (error) {
       console.error("Error loading AI insights:", error);
@@ -140,14 +165,15 @@ const TeamPage: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchPayload();
     fetchTeamMembersAndTeams();
   }, []);
 
   useEffect(() => {
-    if (teamMembers.length > 0) {
+    if (teamMembers.length > 0 && payload?.userId) {
       loadAIInsights();
     }
-  }, [teamMembers]);
+  }, [teamMembers, payload]);
 
   const getStatusColor = (status: StatusType): string => {
     switch (status) {

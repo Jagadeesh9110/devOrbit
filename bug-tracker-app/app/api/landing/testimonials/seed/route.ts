@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // app/api/landing/testimonials/seed/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db/Connect";

@@ -171,7 +171,6 @@ const bugSchema = new mongoose.Schema<IBug>(
         message: "Status must be one of: Open, In Progress, Resolved, Closed",
       },
       default: "Open",
-      index: true,
     },
     createdBy: {
       type: Schema.Types.ObjectId,
@@ -183,12 +182,10 @@ const bugSchema = new mongoose.Schema<IBug>(
       type: Schema.Types.ObjectId,
       ref: "Project",
       required: [true, "Project ID is required"],
-      index: true,
     },
     assigneeId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      index: true,
     },
     priority: {
       type: String,
@@ -197,7 +194,6 @@ const bugSchema = new mongoose.Schema<IBug>(
         message: "Priority must be one of: Low, Medium, High, Critical",
       },
       default: "Medium",
-      index: true,
     },
     severity: {
       type: String,
@@ -221,7 +217,6 @@ const bugSchema = new mongoose.Schema<IBug>(
     labels: [
       {
         type: String,
-        index: true,
         trim: true,
       },
     ],

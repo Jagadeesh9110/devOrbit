@@ -31,6 +31,7 @@ const nextConfig = {
       // Prevent bundling native .node binaries
       config.externals.push({
         "onnxruntime-node": "commonjs onnxruntime-node",
+        sharp: "commonjs sharp",
       });
     }
 

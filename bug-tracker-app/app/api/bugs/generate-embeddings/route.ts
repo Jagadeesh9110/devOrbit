@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // app/api/bugs/generate-embeddings/route.ts
 export const runtime = "nodejs";
 

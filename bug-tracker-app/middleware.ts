@@ -23,6 +23,7 @@ const publicPaths = [
   "/api/auth/oauth-callback/google",
   "/api/auth/oauth-callback/github",
   "/api/auth/verify",
+  "/api/auth/payload",
 ];
 
 const isPublicPath = (pathname: string) =>

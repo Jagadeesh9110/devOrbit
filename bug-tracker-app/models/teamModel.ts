@@ -88,6 +88,8 @@ const teamSchema = new Schema<ITeam>(
 
 teamSchema.index({ "members.userId": 1 });
 teamSchema.index({ projects: 1 });
+teamSchema.index({ name: 1 });
+teamSchema.index({ "members.userId": 1, projects: 1 });
 
 teamSchema.virtual("memberCount").get(function (this: ITeam) {
   return this.members.length;

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // app/api/auth/verify/route.ts - Enhanced version
 export const runtime = "nodejs";
 
