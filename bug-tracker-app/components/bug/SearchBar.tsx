@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Search, Sparkles, Loader2 } from "lucide-react";
-import { aiService, AISearchResult } from "@/lib/services/AiService";
-import { TokenPayload } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/auth"; // ✅ Import fetchWithAuth
+import type { AISearchResult } from "@/lib/services/AiService"; // ✅ Use 'import type'
 
 interface SearchBarProps {
   query: string;
@@ -22,56 +21,40 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = "Search with AI...",
   onAISearch,
 }) => {
-  const router = useRouter();
   const [isAISearching, setIsAISearching] = useState(false);
   const [aiSuggestions, setAISuggestions] = useState<string[]>([]);
   const [searchConfidence, setSearchConfidence] = useState<number | null>(null);
-  const [payload, setPayload] = useState<TokenPayload | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchPayload = async () => {
-      try {
-        const response = await fetch("/api/auth/payload", {
-          method: "GET",
-          credentials: "include",
-        });
-        const data = await response.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        setPayload(data.payload);
-      } catch (error: any) {
-        console.error("Error fetching payload:", error.message);
-        setAuthError("Authentication failed. Please log in again.");
-        router.push("/auth/login");
-      }
-    };
-
-    fetchPayload();
-  }, [router]);
+  // ⛔️ REMOVED payload and authError state and useEffect for fetching payload
 
   const handleAISearch = async () => {
-    if (!query.trim() || !payload?.userId) {
-      console.error("Missing query or userId");
-      if (!payload?.userId) {
-        setAuthError("Authentication required for AI search");
-        router.push("/auth/login");
-      }
+    if (!query.trim()) {
       return;
     }
 
     setIsAISearching(true);
 
     try {
-      const searchResult = await aiService.searchWithAI(query, payload.userId, {
-        limit: 10,
-        threshold: 0.3,
+      // ✅ MODIFIED: Fetch from the new API route
+      const response = await fetchWithAuth("/api/ai/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query,
+          options: {
+            limit: 10,
+            threshold: 0.3,
+          },
+        }),
       });
-      setSearchConfidence(searchResult.confidence);
-      setAISuggestions(searchResult.suggestions.slice(0, 3));
 
-      if (onAISearch) onAISearch(searchResult);
+      if (response.success && response.data) {
+        const searchResult: AISearchResult = response.data;
+        setSearchConfidence(searchResult.confidence);
+        setAISuggestions(searchResult.suggestions.slice(0, 3));
+        if (onAISearch) onAISearch(searchResult);
+      } else {
+        throw new Error(response.message || "AI search failed");
+      }
     } catch (error) {
       console.error("AI search failed:", error);
     } finally {
@@ -91,10 +74,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   }, [query]);
 
-  if (authError) {
-    return <div className="text-red-500 text-center">{authError}</div>;
-  }
-
   return (
     <div className="space-y-3">
       {/* Input & AI Button */}
@@ -111,7 +90,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           />
           <Button
             onClick={handleAISearch}
-            disabled={isAISearching || !query.trim() || !payload?.userId}
+            disabled={isAISearching || !query.trim()}
             size="sm"
             className="absolute right-1 h-8 bg-accent-500 hover:bg-accent-600 text-white"
           >

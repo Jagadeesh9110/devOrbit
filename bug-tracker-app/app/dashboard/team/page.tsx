@@ -40,12 +40,12 @@ import {
   BarChart3,
   Sparkles,
   Zap,
-  Eye,
   Plus,
   Send,
 } from "lucide-react";
-import { fetchWithAuth, TokenPayload } from "@/lib/auth";
-import { aiService, AITeamInsights } from "@/lib/services/AiService";
+import { fetchWithAuth } from "@/lib/auth";
+// ✅ Use 'import type' for types to ensure no server code is bundled
+import type { AITeamInsights } from "@/lib/services/AiService";
 
 interface TeamMember {
   _id: string;
@@ -81,99 +81,87 @@ const TeamPage: React.FC = () => {
   const [inviteTeamId, setInviteTeamId] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [payload, setPayload] = useState<TokenPayload | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
 
-  const fetchTeamMembersAndTeams = async () => {
-    setLoading(true);
-    try {
-      const response = await fetchWithAuth("/api/teams");
-      if (response.error) {
-        throw new Error(response.error);
-      }
+  // ⛔️ REMOVED payload and authError state
+  // const [payload, setPayload] = useState<TokenPayload | null>(null);
+  // const [authError, setAuthError] = useState<string | null>(null);
 
-      setTeams(response.data);
+  // ✅ COMBINED initial data fetching into a single useEffect
+  useEffect(() => {
+    const fetchTeamMembersAndTeams = async () => {
+      setLoading(true);
+      try {
+        const response = await fetchWithAuth("/api/teams");
+        if (response.error) {
+          throw new Error(response.error);
+        }
 
-      const members: TeamMember[] = [];
-      response.data.forEach((team: any) => {
-        team.members.forEach((member: any) => {
-          if (!members.find((m) => m._id === member.userId._id.toString())) {
-            members.push({
-              _id: member.userId._id.toString(),
-              name: member.userId.name,
-              role: member.role,
-              email: member.userId.email,
-              phone: member.userId.phone,
-              location: member.userId.location,
-              status: member.userId.status || "offline",
-              assignedBugs: member.assignedBugs || 0,
-              resolvedBugs: member.resolvedBugs || 0,
-              avgResolutionTime: member.avgResolutionTime || "0 days",
-              skills: member.userId.skills || [],
-              workload: member.workload || 0,
-              specialties: member.specialties || [],
-              startDate: member.userId.startDate
-                ? new Date(member.userId.startDate).toISOString().split("T")[0]
-                : undefined,
-            });
-          }
+        setTeams(response.data);
+
+        const members: TeamMember[] = [];
+        response.data.forEach((team: any) => {
+          team.members.forEach((member: any) => {
+            if (!members.find((m) => m._id === member.userId._id.toString())) {
+              members.push({
+                _id: member.userId._id.toString(),
+                name: member.userId.name,
+                role: member.role,
+                email: member.userId.email,
+                phone: member.userId.phone,
+                location: member.userId.location,
+                status: member.userId.status || "offline",
+                assignedBugs: member.assignedBugs || 0,
+                resolvedBugs: member.resolvedBugs || 0,
+                avgResolutionTime: member.avgResolutionTime || "0 days",
+                skills: member.userId.skills || [],
+                workload: member.workload || 0,
+                specialties: member.specialties || [],
+                startDate: member.userId.startDate
+                  ? new Date(member.userId.startDate)
+                      .toISOString()
+                      .split("T")[0]
+                  : undefined,
+              });
+            }
+          });
         });
-      });
 
-      setTeamMembers(members);
-    } catch (err: any) {
-      console.error("Error fetching data:", err);
-      setError(err.message || "Failed to load data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPayload = async () => {
-    try {
-      const response = await fetch("/api/auth/payload", {
-        method: "GET",
-        credentials: "include",
-      });
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
+        setTeamMembers(members);
+      } catch (err: any) {
+        console.error("Error fetching data:", err);
+        setError(err.message || "Failed to load data");
+      } finally {
+        setLoading(false);
       }
-      setPayload(data.payload);
-    } catch (error: any) {
-      console.error("Error fetching payload:", error.message);
-      setAuthError("Authentication failed. Please log in again.");
-      router.push("/auth/login");
-    }
-  };
+    };
 
+    fetchTeamMembersAndTeams();
+  }, []);
+
+  // ✅ NEW function to fetch AI insights from the API
   const loadAIInsights = async () => {
-    if (!payload || !payload.userId) {
-      console.error("No user payload found");
-      setAuthError("Authentication required for AI insights");
-      return;
-    }
     setLoadingInsights(true);
     try {
-      const insights = await aiService.generateTeamInsights(payload.userId);
-      setAIInsights(insights);
+      const response = await fetchWithAuth("/api/ai/team-insights");
+      if (response.success && response.data) {
+        setAIInsights(response.data);
+      } else {
+        throw new Error(response.message || "Failed to load AI insights");
+      }
     } catch (error) {
       console.error("Error loading AI insights:", error);
+      // Optionally set an error state for insights
     } finally {
       setLoadingInsights(false);
     }
   };
 
+  // ✅ SIMPLIFIED useEffect for AI insights, depends only on teamMembers
   useEffect(() => {
-    fetchPayload();
-    fetchTeamMembersAndTeams();
-  }, []);
-
-  useEffect(() => {
-    if (teamMembers.length > 0 && payload?.userId) {
+    if (teamMembers.length > 0) {
       loadAIInsights();
     }
-  }, [teamMembers, payload]);
+  }, [teamMembers]);
 
   const getStatusColor = (status: StatusType): string => {
     switch (status) {
@@ -205,6 +193,7 @@ const TeamPage: React.FC = () => {
     setSearchQuery(e.target.value);
   };
 
+  // ✅ UPDATED to call the new loadAIInsights function
   const handleRefreshInsights = (): void => {
     loadAIInsights();
   };
@@ -231,7 +220,12 @@ const TeamPage: React.FC = () => {
       setInviteEmail("");
       setInviteRole("Developer");
       setInviteTeamId("");
-      fetchTeamMembersAndTeams(); // Refresh data
+
+      // Manually trigger a refresh after inviting
+      const teamResponse = await fetchWithAuth("/api/teams");
+      if (!teamResponse.error) {
+        setTeams(teamResponse.data);
+      }
     } catch (err: any) {
       setInviteError(err.message || "Failed to send invitation");
     } finally {
