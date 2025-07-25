@@ -192,7 +192,8 @@ export const sendInvitation = async (
     // Get inviter details
     const inviter = await User.findById(userId).select("name email");
 
-    const inviteLink = `${process.env.NEXT_PUBLIC_BASE_URL}/invite?token=${invitation.token}`;
+    // ✅ FIXED: Changed NEXT_PUBLIC_BASE_URL to NEXT_PUBLIC_APP_URL
+    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite?token=${invitation.token}`;
 
     await sendEmail({
       to: email,
